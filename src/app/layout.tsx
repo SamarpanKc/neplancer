@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "NepFree - Freelance simplified for Nepal",
+  title: "Neplancer - Freelance simplified for Nepal",
   description: "Freelance simplified for Nepal",
 };
 

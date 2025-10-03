@@ -1,8 +1,9 @@
 "use client"
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Krona_One, Manrope } from "next/font/google";
 import Link from "next/link";
-import Signin from "./signin";
+import { useAuth } from "@/hooks/useAuth";
+import { useRouter } from "next/navigation";
 
 const kronaOne = Krona_One({
   subsets: ["latin"],
@@ -33,6 +34,33 @@ interface DropdownContent {
 
 const Navbar = () => {
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const { user, logout, isAuthenticated, isClient, isFreelancer } = useAuth();
+  const router = useRouter();
+  const userMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close user menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setShowUserMenu(false);
+      }
+    };
+
+    if (showUserMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showUserMenu]);
+
+  const handleLogout = () => {
+    logout();
+    setShowUserMenu(false);
+    router.push('/');
+  };
 
   const independentsContent = {
     title: "GROW YOUR CAREER",
@@ -82,7 +110,7 @@ const Navbar = () => {
       },
       {
         title: "Commission-free payments",
-        description: "Keep 100% of what you earn"
+        description: "Keep 94% of what you earn"
       }
     ]
   };
@@ -116,7 +144,7 @@ const Navbar = () => {
               {content.sections.map((section: DropdownSection, index: number) => (
                 <div key={index} className="mb-6">
                   <h3 className="font-semibold text-foreground mb-2">{section.title}</h3>
-                  <p className="text-gray-600 text-sm leading-relaxed">{section.description}</p>
+                  <Link href={""} className="text-gray-600 text-sm leading-relaxed">{section.description}</Link>
                 </div>
               ))}
             </div>
@@ -144,7 +172,7 @@ const Navbar = () => {
           {/* Footer Pro Section */}
           {content.footer && (
             <div className="mt-8 pt-6">
-              <div className="flex items-center justify-between bg-gray-50 rounded-lg p-4">
+              <div className="flex items-center justify-between bg-gray-100 hover:bg-[#3cf790] hover:text-2xl transition-all duration-400 cursor-pointer rounded-lg p-4">
                 <div>
                   <h3 className="font-semibold text-gray-900 mb-1">{content.footer.title}</h3>
                   <p className="text-gray-600 text-sm">{content.footer.description}</p>
@@ -168,32 +196,187 @@ const Navbar = () => {
         {/* Logo */}
         <div className="flex items-center gap-2">
           <span className="text-2xl font-bold flex items-center gap-2 select-none">
-            <span className={`${kronaOne.className} font-bold`}>Neplancer</span>
+            <Link className={`${kronaOne.className} font-bold`} href={"./"}>Neplancer</Link>
           </span>
         </div>
 
         {/* Nav Links */}
         <div className={`${manrope.className} hidden md:flex gap-8 text-base font-semibold text-gray-800`}>
-          {["Independents", "Companies", "Creator tools", "Human in the loop"].map((item) => (
-            <a
-              key={item}
-              href="#"
-              className="hover:text-black/30 transition py-2"
-              onMouseEnter={() => setHoveredItem(item)}
-              onMouseLeave={() => setHoveredItem(null)}
-            >
-              {item}
-            </a>
-          ))}
+          {!isAuthenticated ? (
+            // Public navigation
+            ["Independents", "Companies", "Creator tools"].map((item) => (
+              <a
+                key={item}
+                href="#"
+                className="hover:text-black/30 transition py-2"
+                onMouseEnter={() => setHoveredItem(item)}
+                onMouseLeave={() => setHoveredItem(null)}
+              >
+                {item}
+              </a>
+            ))
+          ) : (
+            // Authenticated navigation
+            <>
+              <Link href="/dashboard" className="hover:text-black/30 transition py-2">
+                Dashboard
+              </Link>
+              
+              {isFreelancer && (
+                <>
+                  <Link href="/freelancer/browse-jobs" className="hover:text-black/30 transition py-2">
+                    Browse Jobs
+                  </Link>
+                  <Link href="/freelancer/my-proposals" className="hover:text-black/30 transition py-2">
+                    My Proposals
+                  </Link>
+                </>
+              )}
+              
+              {isClient && (
+                <>
+                  <Link href="/client/post-job" className="hover:text-black/30 transition py-2">
+                    Post a Job
+                  </Link>
+                  <Link href="/client/jobs" className="hover:text-black/30 transition py-2">
+                    My Jobs
+                  </Link>
+                </>
+              )}
+              
+              <Link href="/communication" className="hover:text-black/30 transition py-2">
+                Messages
+              </Link>
+              <Link href="/contracts" className="hover:text-black/30 transition py-2">
+                Contracts
+              </Link>
+            </>
+          )}
         </div>
 
-        {/* CTA Buttons */}
+        {/* CTA Buttons / User Menu */}
         <div className={`${manrope.className} flex items-center gap-4`}>
-          {/* Sign up Button */}
-          <button className="px-6 py-2 rounded-full bg-foreground text-white font-semibold hover:bg-foreground/80 transition cursor-pointer">Sign up</button>
-          {/* Log in Link */}
-          {/* <a href="#" className="text-gray-900 font-medium hover:underline"></a> */}
-          <Link href="/signin" className="text-gray-900 font-medium hover:underline"> Log in </Link>
+          {!isAuthenticated ? (
+            // Not logged in - show signup/login
+            <>
+              <Link 
+                href="/register" 
+                className="px-6 py-2 rounded-full bg-foreground text-white font-semibold hover:bg-gray-800 cursor-pointer transition-colors duration-200"
+              >
+                Sign up
+              </Link>
+              <Link 
+                href="/login" 
+                className="text-gray-900 font-semibold hover:text-gray-600 transition-colors duration-200"
+              >
+                Log in
+              </Link>
+            </>
+          ) : (
+            // Logged in - show user menu
+            <div className="relative" ref={userMenuRef}>
+              <button
+                onClick={() => setShowUserMenu(!showUserMenu)}
+                className="flex items-center gap-2 px-4 py-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors duration-200"
+              >
+                <div className="w-8 h-8 rounded-full bg-[#0CF574] flex items-center justify-center text-foreground font-bold">
+                  {user?.name?.charAt(0).toUpperCase()}
+                </div>
+                <span className="font-semibold text-gray-900">{user?.name}</span>
+                <svg 
+                  className={`w-4 h-4 transition-transform duration-200 ${showUserMenu ? 'rotate-180' : ''}`} 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {/* User Dropdown Menu */}
+              {showUserMenu && (
+                <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
+                  <div className="px-4 py-3 border-b border-gray-200">
+                    <p className="text-sm font-semibold text-gray-900">{user?.name}</p>
+                    <p className="text-xs text-gray-500">{user?.email}</p>
+                    <span className="inline-block mt-1 px-2 py-1 text-xs font-semibold bg-[#0CF574]/20 text-foreground rounded">
+                      {user?.role === 'client' ? 'Client' : 'Freelancer'}
+                    </span>
+                  </div>
+                  
+                  <Link 
+                    href="/dashboard" 
+                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    onClick={() => setShowUserMenu(false)}
+                  >
+                    Dashboard
+                  </Link>
+                  
+                  {isFreelancer && (
+                    <>
+                      <Link 
+                        href="/freelancer/browse-jobs" 
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                        onClick={() => setShowUserMenu(false)}
+                      >
+                        Browse Jobs
+                      </Link>
+                      <Link 
+                        href="/freelancer/my-proposals" 
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                        onClick={() => setShowUserMenu(false)}
+                      >
+                        My Proposals
+                      </Link>
+                    </>
+                  )}
+                  
+                  {isClient && (
+                    <>
+                      <Link 
+                        href="/client/post-job" 
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                        onClick={() => setShowUserMenu(false)}
+                      >
+                        Post a Job
+                      </Link>
+                      <Link 
+                        href="/client/jobs" 
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                        onClick={() => setShowUserMenu(false)}
+                      >
+                        My Jobs
+                      </Link>
+                    </>
+                  )}
+                  
+                  <Link 
+                    href="/communication" 
+                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    onClick={() => setShowUserMenu(false)}
+                  >
+                    Messages
+                  </Link>
+                  <Link 
+                    href="/contracts" 
+                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    onClick={() => setShowUserMenu(false)}
+                  >
+                    Contracts
+                  </Link>
+                  
+                  <div className="border-t border-gray-200 mt-2 pt-2">
+                    <button
+                      onClick={handleLogout}
+                      className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                    >
+                      Log out
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </nav>
 
