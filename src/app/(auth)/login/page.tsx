@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Manrope } from 'next/font/google';
-import { setStoredUser, setAuthToken } from '@/lib/auth';
+import { storeUser, storeAuthToken } from '@/lib/auth';
 
 const manrope = Manrope({
   subsets: ["latin"],
@@ -39,8 +39,10 @@ export default function LoginPage() {
       }
 
       // Store user and token
-      setStoredUser(data.user);
-      setAuthToken(data.token);
+      storeUser(data.user);
+      if (data.session?.access_token) {
+        storeAuthToken(data.session.access_token);
+      }
 
       // Redirect based on role
       if (data.user.role === 'client') {

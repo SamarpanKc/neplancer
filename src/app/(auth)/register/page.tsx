@@ -4,9 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Manrope } from 'next/font/google';
-import { setStoredUser, setAuthToken } from '@/lib/auth';
-import Image from 'next/image';
-import SignUpImg from '@/app/assets/images/signup.png'
+import { storeUser, storeAuthToken } from '@/lib/auth';
 
 const manrope = Manrope({
   subsets: ["latin"],
@@ -21,6 +19,7 @@ export default function RegisterPage() {
     password: '',
     confirmPassword: '',
     role: 'freelancer' as 'client' | 'freelancer',
+    username: '',
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -40,6 +39,16 @@ export default function RegisterPage() {
       return;
     }
 
+    if (formData.role === 'freelancer' && !formData.username.trim()) {
+      setError('Username is required for freelancers');
+      return;
+    }
+
+    if (formData.role === 'freelancer' && formData.username.length < 3) {
+      setError('Username must be at least 3 characters');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -51,6 +60,7 @@ export default function RegisterPage() {
           email: formData.email,
           password: formData.password,
           role: formData.role,
+          username: formData.role === 'freelancer' ? formData.username : undefined,
         }),
       });
 
@@ -61,8 +71,15 @@ export default function RegisterPage() {
       }
 
       // Store user and token
-      setStoredUser(data.user);
-      setAuthToken(data.token);
+      storeUser(data.user);
+      if (data.session?.access_token) {
+        storeAuthToken(data.session.access_token);
+      }
+
+      // Show success message if email confirmation is required
+      if (data.message) {
+        alert(data.message);
+      }
 
       // Redirect based on role
       if (data.user.role === 'client') {
@@ -161,6 +178,30 @@ export default function RegisterPage() {
                 placeholder="Samarpan KC"
               />
             </div>
+
+            {/* Username field - only for freelancers */}
+            {formData.role === 'freelancer' && (
+              <div>
+                <label htmlFor="username" className="block text-sm font-semibold text-gray-700 mb-2">
+                  Username
+                </label>
+                <input
+                  id="username"
+                  name="username"
+                  type="text"
+                  autoComplete="username"
+                  required
+                  value={formData.username}
+                  onChange={(e) => setFormData({ ...formData, username: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '') })}
+                  className="appearance-none relative block w-full px-4 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                  placeholder="samarpan_kc"
+                  minLength={3}
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  Unique username for your profile (lowercase letters, numbers, and underscores only)
+                </p>
+              </div>
+            )}
 
             <div>
               <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-2">

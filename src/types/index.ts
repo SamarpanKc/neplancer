@@ -21,6 +21,9 @@ export interface Freelancer extends User {
   portfolio?: string;
   rating?: number;
   completedJobs: number;
+  title?: string;
+  badges?: string[];
+  totalEarned?: number;
 }
 
 // Job Types

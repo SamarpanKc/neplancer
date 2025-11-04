@@ -1,90 +1,76 @@
 "use client";
 
-import React from "react";
+import React from 'react';
+import { Star } from "lucide-react";
 import Image from "next/image";
-import { Manrope } from "next/font/google";
-
-const manrope = Manrope({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-});
 
 interface FreelancerCardProps {
   name: string;
-  username: string;
+  title: string;
   avatar: string;
-  status: "online" | "offline" | "connecting";
-  lastSeen?: string;
-  skills?: string[];
+  bio: string;
   rating?: number;
+  onClick?: () => void;
 }
 
 export default function FreelancerCard({
   name,
-  username,
+  title,
   avatar,
-  status,
-  skills,
+  bio,
+  rating = 4.0,
+  onClick,
 }: FreelancerCardProps) {
-  const getStatusText = () => {
-    switch (status) {
-      case "online":
-        return "Active Now";
-      case "connecting":
-        return "Connecting";
-      default:
-        return "Away";
-    }
-  };
-
   return (
-    <div className={`${manrope.className} w-full max-w-sm mx-auto`}>
-      {/* Main Card Container - White background with rounded corners */}
-      <div className="bg-white rounded-[32px] p-3 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 cursor-pointer">
+    <div className="relative w-[392px] bg-white rounded-[32px] p-6 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1">
+      {/* Profile Image with Rating Badge */}
+      <div className="relative w-full aspect-square rounded-[32px] overflow-hidden mb-6 bg-gradient-to-br from-gray-100 to-gray-50">
+        <Image
+          src={avatar}
+          alt={name}
+          fill
+          className="object-cover"
+          sizes="392px"
+          priority
+        />
         
-        {/* Image Container with Rounded Corners */}
-        <div className="relative w-full aspect-square rounded-[24px] overflow-hidden bg-gray-100 mb-4">
-          <Image
-            src={avatar}
-            alt={name}
-            fill
-            className="object-cover object-center"
-            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-            priority
-          />
+        {/* Rating Badge - Top Right */}
+        <div className="absolute top-4 right-4 bg-white rounded-full px-4 py-2 shadow-lg flex items-center gap-1.5">
+          <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+          <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+          <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+          <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+          <Star className="w-4 h-4 fill-gray-300 text-gray-300" />
         </div>
-
-        {/* Skills Tags */}
-        {skills && skills.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-4">
-            {skills.slice(0, 3).map((skill, index) => (
-              <span
-                key={index}
-                className="px-3 py-1.5 bg-gray-100 text-gray-700 text-xs font-medium rounded-full hover:bg-gray-200 transition-colors duration-200"
-              >
-                {skill}
-              </span>
-            ))}
-          </div>
-        )}
-
-        {/* Username and Status */}
-        <div className="footer flex items-center gap-14">
-        <div className="mb-5">
-          <h3 className="text-x font-bold text-gray-900 mb-1">
-            {username}
-          </h3>
-          <p className="text-sm font-medium text-gray-500">
-            {getStatusText()}
-          </p>
+        
+        {/* Rating Text - Bottom of Badge */}
+        <div className="absolute top-[60px] right-4 bg-white rounded-full px-3 py-1 shadow-lg">
+          <span className="text-xs font-semibold text-gray-900">{rating.toFixed(1)} Rating</span>
         </div>
-
-        {/* Hire Button */}
-        <button className="w-2/3 h-8 bg-black hover:bg-gray-800 text-white font-semibold text-xs rounded-full transition-all  duration-200 flex items-center justify-center gap-2 shadow-lg hover:shadow-xl active:scale-95 cursor-pointer">
-          <span className="text-lg">+</span>
-          <span>Hire Now</span>
-        </button>
       </div>
+
+      {/* Content Section */}
+      <div className="space-y-4">
+        {/* Name and Title */}
+        <div>
+          <h3 className="text-3xl font-bold text-gray-900 mb-1 leading-tight">
+            {name}
+          </h3>
+          <p className="text-lg text-gray-900 font-medium">{title}</p>
+        </div>
+
+        {/* Bio Text */}
+        <p className="text-sm text-gray-900 leading-relaxed line-clamp-3">
+          {bio}
+        </p>
+
+        {/* Hire Now Button */}
+        <button 
+          onClick={onClick}
+          className="w-auto px-6 py-2.5 bg-black hover:bg-gray-900 text-white text-sm font-bold rounded-full transition-all duration-200 hover:shadow-lg uppercase tracking-wide"
+        >
+          HIRE NOW
+        </button>
       </div>
     </div>
   );
