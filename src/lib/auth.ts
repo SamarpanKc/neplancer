@@ -1,136 +1,143 @@
-// lib/auth.ts
-import { supabase } from './supabase';
+// lib/auth.ts - DEMO MODE (Supabase Disabled)
 import { User } from '@/types';
-import { getProfile } from './database';
+import { mockUsers, demoClientUser, demoFreelancerUser } from '@/data/mockData';
 
-// Get current user from Supabase session
+// DEMO MODE: Get current user from localStorage
 export async function getCurrentUser(): Promise<User | null> {
   try {
-    // First check if there's an active session
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-    
-    if (sessionError) {
-      console.error('Session error:', sessionError);
-      return null;
+    const storedUser = getStoredUser();
+    if (storedUser) {
+      return storedUser;
     }
-    
-    // If no session, return null (not an error - user just isn't logged in)
-    if (!session?.user) {
-      return null;
-    }
-    
-    const user = session.user;
-    
-    // Fetch full profile from database
-    const profile = await getProfile(user.id);
-    
-    // Map Supabase user to your User type
-    return {
-      id: user.id,
-      email: user.email!,
-      name: profile?.full_name || user.user_metadata?.full_name || user.user_metadata?.name || '',
-      role: profile?.role || 'freelancer',
-      ...user.user_metadata,
-    } as User;
+    return null;
   } catch (error) {
     console.error('Error getting current user:', error);
     return null;
   }
 }
 
-// Get current session
+// Get current session (DEMO MODE)
 export async function getCurrentSession() {
   try {
-    const { data: { session }, error } = await supabase.auth.getSession();
-    if (error) throw error;
-    return session;
+    const user = getStoredUser();
+    if (!user) return null;
+    
+    return {
+      user,
+      access_token: 'demo_token',
+      expires_at: Date.now() + 3600000, // 1 hour from now
+    };
   } catch (error) {
     console.error('Error getting session:', error);
     return null;
   }
 }
 
-// Sign out
+// Sign out (DEMO MODE)
 export async function signOut() {
   try {
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
+    removeStoredUser();
+    removeAuthToken();
   } catch (error) {
     console.error('Error signing out:', error);
     throw error;
   }
 }
 
-// Sign in with email/password
-export async function signIn(email: string, password: string) {
+// Sign in with email/password (DEMO MODE)
+export async function signIn(email: string, _password: string) {
   try {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    if (error) throw error;
-    return data;
+    // Demo mode: Accept any email/password and return a mock user
+    const user = mockUsers.find(u => u.email === email) || demoClientUser;
+    
+    storeUser(user);
+    storeAuthToken('demo_token_' + user.id);
+    
+    return {
+      user,
+      session: {
+        access_token: 'demo_token_' + user.id,
+        expires_at: Date.now() + 3600000,
+      },
+    };
   } catch (error) {
     console.error('Error signing in:', error);
     throw error;
   }
 }
 
-// Sign up with email/password
+// Sign up with email/password (DEMO MODE)
 export async function signUp(email: string, password: string, metadata?: Record<string, unknown>) {
   try {
-    const { data, error } = await supabase.auth.signUp({
+    // Demo mode: Create a mock user
+    const newUser: User = {
+      id: 'user-' + Date.now(),
       email,
-      password,
-      options: {
-        data: metadata, // Additional user data
+      name: metadata?.name as string || 'New User',
+      role: (metadata?.role as 'client' | 'freelancer') || 'freelancer',
+      avatar: `https://i.pravatar.cc/150?img=${Math.floor(Math.random() * 70)}`,
+      createdAt: new Date(),
+    };
+    
+    storeUser(newUser);
+    storeAuthToken('demo_token_' + newUser.id);
+    
+    return {
+      user: newUser,
+      session: {
+        access_token: 'demo_token_' + newUser.id,
+        expires_at: Date.now() + 3600000,
       },
-    });
-    if (error) throw error;
-    return data;
+    };
   } catch (error) {
     console.error('Error signing up:', error);
     throw error;
   }
 }
 
-// Refresh session (usually handled automatically by Supabase)
+// Refresh session (DEMO MODE)
 export async function refreshSession() {
   try {
-    const { data: { session }, error } = await supabase.auth.refreshSession();
-    if (error) throw error;
-    return session;
+    const user = getStoredUser();
+    if (!user) return null;
+    
+    return {
+      user,
+      access_token: 'demo_token_' + user.id,
+      expires_at: Date.now() + 3600000,
+    };
   } catch (error) {
     console.error('Error refreshing session:', error);
     throw error;
   }
 }
 
-// Listen to auth state changes
+// Listen to auth state changes (DEMO MODE)
 export function onAuthStateChange(callback: (user: User | null) => void) {
-  return supabase.auth.onAuthStateChange(async (event, session) => {
-    if (session?.user) {
-      try {
-        const profile = await getProfile(session.user.id);
-        const user: User = {
-          id: session.user.id,
-          email: session.user.email!,
-          name: profile?.full_name || session.user.user_metadata?.full_name || session.user.user_metadata?.name || '',
-          role: profile?.role || 'freelancer',
-          ...session.user.user_metadata,
-        } as User;
-        callback(user);
-      } catch (error) {
-        console.error('Error fetching profile:', error);
-        callback(null);
-      }
-    } else {
-      callback(null);
-    }
-  });
+  // In demo mode, just check localStorage on mount
+  const user = getStoredUser();
+  callback(user);
+  
+  // Return a mock subscription
+  return {
+    data: {
+      subscription: {
+        unsubscribe: () => {},
+      },
+    },
+  };
 }
 
-// Storage helpers (kept for backward compatibility but using Supabase session)
+// Demo login helpers
+export async function loginAsClient() {
+  return signIn(demoClientUser.email, 'demo');
+}
+
+export async function loginAsFreelancer() {
+  return signIn(demoFreelancerUser.email, 'demo');
+}
+
+// Storage helpers
 export function getStoredUser(): User | null {
   if (typeof window === 'undefined') return null;
   
