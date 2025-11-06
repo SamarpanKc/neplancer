@@ -416,3 +416,177 @@ export const getConversationsByUser = (userId: string): Conversation[] => {
 // Demo user for quick login
 export const demoClientUser: User = mockUsers[0];
 export const demoFreelancerUser: User = mockUsers[1];
+
+// ============= Portfolio Items =============
+import { PortfolioItem, Review } from '@/types';
+
+export const mockPortfolioItems: PortfolioItem[] = [
+  // Amit's portfolio
+  {
+    id: 'port-1',
+    freelancerId: 'fl-1',
+    title: 'E-commerce Platform Redesign',
+    description: 'Complete redesign and development of a modern e-commerce platform with responsive design, shopping cart, payment integration, and admin panel.',
+    image: 'https://images.unsplash.com/photo-1557821552-17105176677c?w=800',
+    url: 'https://example.com/project1',
+    technologies: ['React', 'Node.js', 'MongoDB', 'Stripe', 'Tailwind CSS'],
+    createdAt: new Date('2024-08-15'),
+  },
+  {
+    id: 'port-2',
+    freelancerId: 'fl-1',
+    title: 'Restaurant Booking App',
+    description: 'Mobile-first web application for restaurant table bookings with real-time availability, notifications, and customer reviews.',
+    image: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800',
+    url: 'https://example.com/project2',
+    technologies: ['Next.js', 'Firebase', 'React Native', 'Google Maps API'],
+    createdAt: new Date('2024-09-20'),
+  },
+  {
+    id: 'port-3',
+    freelancerId: 'fl-1',
+    title: 'Corporate Website',
+    description: 'Professional corporate website with CMS integration, blog, career portal, and multi-language support.',
+    technologies: ['WordPress', 'PHP', 'MySQL', 'JavaScript'],
+    createdAt: new Date('2024-10-05'),
+  },
+  // Priya's portfolio
+  {
+    id: 'port-4',
+    freelancerId: 'fl-2',
+    title: 'Brand Identity for Tech Startup',
+    description: 'Complete brand identity design including logo, color palette, typography, business cards, and brand guidelines.',
+    image: 'https://images.unsplash.com/photo-1561070791-2526d30994b5?w=800',
+    technologies: ['Adobe Illustrator', 'Photoshop', 'Figma'],
+    createdAt: new Date('2024-07-10'),
+  },
+  {
+    id: 'port-5',
+    freelancerId: 'fl-2',
+    title: 'Social Media Campaign',
+    description: 'Social media graphics and templates for a 3-month marketing campaign including posts, stories, and ads.',
+    image: 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=800',
+    technologies: ['Canva', 'Adobe Creative Suite', 'Figma'],
+    createdAt: new Date('2024-09-01'),
+  },
+  // Raj's portfolio
+  {
+    id: 'port-6',
+    freelancerId: 'fl-3',
+    title: 'Mobile Banking App',
+    description: 'Secure mobile banking application with biometric authentication, fund transfers, bill payments, and transaction history.',
+    image: 'https://images.unsplash.com/photo-1563986768609-322da13575f3?w=800',
+    url: 'https://example.com/banking-app',
+    technologies: ['Flutter', 'Firebase', 'REST API', 'SQLite'],
+    createdAt: new Date('2024-06-15'),
+  },
+  {
+    id: 'port-7',
+    freelancerId: 'fl-3',
+    title: 'Fitness Tracking App',
+    description: 'Cross-platform fitness app with workout tracking, nutrition logging, progress charts, and social features.',
+    image: 'https://images.unsplash.com/photo-1461896836934-ffe607ba8211?w=800',
+    technologies: ['React Native', 'Node.js', 'MongoDB', 'HealthKit'],
+    createdAt: new Date('2024-08-22'),
+  },
+];
+
+// ============= Reviews =============
+export const mockReviews: Review[] = [
+  // Reviews for Amit (fl-1)
+  {
+    id: 'rev-1',
+    freelancerId: 'fl-1',
+    clientId: 'cl-1',
+    clientName: 'Rajesh Kumar',
+    clientAvatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Rajesh',
+    rating: 5,
+    comment: 'Amit is an exceptional developer! He delivered the e-commerce platform ahead of schedule and the quality exceeded my expectations. His communication was excellent throughout the project.',
+    projectTitle: 'E-commerce Platform Development',
+    date: '2 weeks ago',
+    createdAt: new Date('2024-10-20'),
+  },
+  {
+    id: 'rev-2',
+    freelancerId: 'fl-1',
+    clientId: 'cl-2',
+    clientName: 'Sarah Johnson',
+    clientAvatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Sarah',
+    rating: 5,
+    comment: 'Outstanding work! The restaurant booking app works flawlessly. Amit is very professional and responsive to feedback. Highly recommended!',
+    projectTitle: 'Restaurant Booking Application',
+    date: '1 month ago',
+    createdAt: new Date('2024-10-01'),
+  },
+  {
+    id: 'rev-3',
+    freelancerId: 'fl-1',
+    clientId: 'cl-1',
+    clientName: 'Rajesh Kumar',
+    clientAvatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Rajesh',
+    rating: 4,
+    comment: 'Great developer with strong technical skills. The corporate website looks professional and functions well. Minor delays in delivery but overall very satisfied.',
+    projectTitle: 'Corporate Website',
+    date: '2 months ago',
+    createdAt: new Date('2024-09-01'),
+  },
+  // Reviews for Priya (fl-2)
+  {
+    id: 'rev-4',
+    freelancerId: 'fl-2',
+    clientId: 'cl-1',
+    clientName: 'Rajesh Kumar',
+    clientAvatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Rajesh',
+    rating: 5,
+    comment: 'Priya created a stunning brand identity for our startup! Her creativity and attention to detail are remarkable. The brand guidelines she provided are comprehensive and easy to follow.',
+    projectTitle: 'Brand Identity Design',
+    date: '3 weeks ago',
+    createdAt: new Date('2024-10-15'),
+  },
+  {
+    id: 'rev-5',
+    freelancerId: 'fl-2',
+    clientId: 'cl-2',
+    clientName: 'Michael Chen',
+    clientAvatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Michael',
+    rating: 5,
+    comment: 'Excellent work on the social media campaign! The graphics are eye-catching and perfectly aligned with our brand. Priya is a talented designer.',
+    projectTitle: 'Social Media Graphics',
+    date: '1 month ago',
+    createdAt: new Date('2024-10-01'),
+  },
+  // Reviews for Raj (fl-3)
+  {
+    id: 'rev-6',
+    freelancerId: 'fl-3',
+    clientId: 'cl-1',
+    clientName: 'Rajesh Kumar',
+    clientAvatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Rajesh',
+    rating: 5,
+    comment: 'Raj built an incredible mobile banking app! The security features are robust and the UX is smooth. His expertise in mobile development is evident.',
+    projectTitle: 'Mobile Banking App',
+    date: '6 weeks ago',
+    createdAt: new Date('2024-09-20'),
+  },
+  {
+    id: 'rev-7',
+    freelancerId: 'fl-3',
+    clientId: 'cl-2',
+    clientName: 'David Wilson',
+    clientAvatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=David',
+    rating: 4,
+    comment: 'Very skilled mobile developer. The fitness app has great features and runs smoothly on both iOS and Android. Would work with Raj again!',
+    projectTitle: 'Fitness Tracking App',
+    date: '2 months ago',
+    createdAt: new Date('2024-09-01'),
+  },
+];
+
+// Helper functions for portfolio and reviews
+export const getFreelancerPortfolio = (freelancerId: string): PortfolioItem[] => {
+  return mockPortfolioItems.filter(item => item.freelancerId === freelancerId);
+};
+
+export const getFreelancerReviews = (freelancerId: string): Review[] => {
+  return mockReviews.filter(review => review.freelancerId === freelancerId);
+};

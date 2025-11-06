@@ -24,6 +24,20 @@ export interface Freelancer extends User {
   title?: string;
   badges?: string[];
   totalEarned?: number;
+  // Extended properties for profile page
+  location?: string;
+  category?: string;
+  bio?: string;
+  experienceLevel?: string;
+  reviews?: number;
+  jobsCompleted?: number;
+  totalEarnings?: number;
+  responseTime?: string;
+  successRate?: number;
+  availability?: string;
+  isOnline?: boolean;
+  languages?: { language: string; proficiency: string; }[];
+  education?: string;
 }
 
 // Job Types
@@ -39,6 +53,7 @@ export interface Job {
   status: 'open' | 'in_progress' | 'completed' | 'cancelled';
   createdAt: Date;
   deadline?: Date;
+  proposalsCount?: number;
 }
 
 // Proposal Types
@@ -75,13 +90,41 @@ export interface Conversation {
 export interface Contract {
   id: string;
   jobId: string;
+  jobTitle: string;
   job?: Job;
   clientId: string;
   freelancerId: string;
   budget: number;
+  totalAmount: number;
   terms: string;
   status: 'draft' | 'active' | 'completed' | 'cancelled';
   startDate: Date;
   endDate?: Date;
+  createdAt: Date;
+}
+
+// Portfolio Types
+export interface PortfolioItem {
+  id: string;
+  freelancerId: string;
+  title: string;
+  description: string;
+  image?: string;
+  url?: string;
+  technologies: string[];
+  createdAt: Date;
+}
+
+// Review Types
+export interface Review {
+  id: string;
+  freelancerId: string;
+  clientId: string;
+  clientName: string;
+  clientAvatar: string;
+  rating: number;
+  comment: string;
+  projectTitle?: string;
+  date: string;
   createdAt: Date;
 }

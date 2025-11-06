@@ -7,7 +7,9 @@ import {
   Conversation,
   Freelancer,
   Client,
-  User
+  User,
+  PortfolioItem,
+  Review
 } from '@/types';
 import {
   mockJobs,
@@ -26,6 +28,8 @@ import {
   getContractsByUser,
   getMessagesByConversation,
   getConversationsByUser,
+  getFreelancerPortfolio,
+  getFreelancerReviews,
 } from '@/data/mockData';
 
 // ============= Jobs API =============
@@ -267,6 +271,18 @@ function delay(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+// ============= Portfolio API =============
+export async function getFreelancerPortfolioApi(freelancerId: string): Promise<PortfolioItem[]> {
+  await delay(250);
+  return getFreelancerPortfolio(freelancerId);
+}
+
+// ============= Reviews API =============
+export async function getFreelancerReviewsApi(freelancerId: string): Promise<Review[]> {
+  await delay(250);
+  return getFreelancerReviews(freelancerId);
+}
+
 // Export for use in API routes
 export const demoApi = {
   // Jobs
@@ -311,4 +327,8 @@ export const demoApi = {
   
   // Users
   getUserById: getUserByIdApi,
+  
+  // Portfolio & Reviews
+  getFreelancerPortfolio: getFreelancerPortfolioApi,
+  getFreelancerReviews: getFreelancerReviewsApi,
 };

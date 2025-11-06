@@ -4,7 +4,8 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Manrope } from 'next/font/google';
-import { storeUser, storeAuthToken } from '@/lib/auth';
+import { signUp } from '@/lib/auth';
+import { CheckCircle2, ArrowRight, ArrowLeft, User, Briefcase, Code, DollarSign, Upload } from 'lucide-react';
 
 const manrope = Manrope({
   subsets: ["latin"],
