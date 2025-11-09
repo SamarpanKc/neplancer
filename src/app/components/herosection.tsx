@@ -15,7 +15,14 @@ const manrope = Manrope({
 const HeroSection = () => {
   const router = useRouter();
   const { isAuthenticated, isClient, isFreelancer } = useAuth();
-  const [activeTab, setActiveTab] = useState<'hire' | 'get-hired'>('hire');
+  // If user is logged in, set default tab based on their role
+  const getDefaultTab = () => {
+    if (isFreelancer) return 'get-hired';
+    if (isClient) return 'hire';
+    return 'hire'; // default for non-authenticated users
+  };
+  
+  const [activeTab, setActiveTab] = useState<'hire' | 'get-hired'>(getDefaultTab());
   const [searchQuery, setSearchQuery] = useState('');
 
   const handleTabChange = (tab: 'hire' | 'get-hired') => {
@@ -66,39 +73,41 @@ const HeroSection = () => {
   return (
     <>
     <div className={`${manrope.className} min-h-[85vh] bg-gradient-to-b from-white via-white to-[#0CF574]/20 flex flex-col items-center justify-center px-4 sm:px-8 py-16 lg:py-20`}>
-      {/* Tab Navigation */}
-      <div className="mb-10 lg:mb-12">
-        <div className="flex bg-gray-50 rounded-full p-1.5 border border-gray-100">
-          <button
-            onClick={() => handleTabChange('hire')}
-            className={`px-6 sm:px-10 py-3 rounded-full text-sm font-bold transition-all duration-300 cursor-pointer ${
-              activeTab === 'hire'
-                ? 'bg-gray-900 text-white shadow-md scale-105'
-                : 'text-gray-500 hover:text-gray-900'
-            }`}
-            aria-label="Switch to hire mode"
-          >
-            HIRE TALENT
-          </button>
-          <button
-            onClick={() => handleTabChange('get-hired')}
-            className={`px-6 sm:px-10 py-3 rounded-full text-sm font-bold transition-all duration-300 cursor-pointer ${
-              activeTab === 'get-hired'
-                ? 'bg-gray-900 text-white shadow-md scale-105'
-                : 'text-gray-500 hover:text-gray-900'
-            }`}
-            aria-label="Switch to get hired mode"
-          >
-            FIND WORK
-          </button>
+      {/* Tab Navigation - Only show if not authenticated or show appropriate tab based on role */}
+      {!isAuthenticated && (
+        <div className="mb-10 lg:mb-12">
+          <div className="flex bg-gray-50 rounded-full p-1.5 border border-gray-100">
+            <button
+              onClick={() => handleTabChange('hire')}
+              className={`px-6 sm:px-10 py-3 rounded-full text-sm font-bold transition-all duration-300 cursor-pointer ${
+                activeTab === 'hire'
+                  ? 'bg-gray-900 text-white shadow-md scale-105'
+                  : 'text-gray-500 hover:text-gray-900'
+              }`}
+              aria-label="Switch to hire mode"
+            >
+              HIRE TALENT
+            </button>
+            <button
+              onClick={() => handleTabChange('get-hired')}
+              className={`px-6 sm:px-10 py-3 rounded-full text-sm font-bold transition-all duration-300 cursor-pointer ${
+                activeTab === 'get-hired'
+                  ? 'bg-gray-900 text-white shadow-md scale-105'
+                  : 'text-gray-500 hover:text-gray-900'
+              }`}
+              aria-label="Switch to get hired mode"
+            >
+              FIND WORK
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Main Content */}
       <div className="text-center max-w-5xl mx-auto">
         {/* Main Heading */}
         <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-gray-900 mb-4 lg:mb-6 leading-[1.1] tracking-tight">
-          {activeTab === 'hire' ? (
+          {(activeTab === 'hire' || isClient) ? (
             <>
               Find the perfect <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#0CF574] to-emerald-600">talent</span>
             </>
@@ -111,7 +120,7 @@ const HeroSection = () => {
 
         {/* Subtitle */}
         <p className="text-lg sm:text-xl text-gray-600 mb-12 lg:mb-16 leading-relaxed max-w-3xl mx-auto font-medium">
-          {activeTab === 'hire' 
+          {(activeTab === 'hire' || isClient)
             ? "Connect with Nepal's top independent professionals and bring your vision to life"
             : "Join leading companies and showcase your expertise to land your dream project"}
         </p>
@@ -132,7 +141,7 @@ const HeroSection = () => {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={activeTab === 'hire' ? 'Search for skills or services...' : 'Search for projects or jobs...'}
+                placeholder={(activeTab === 'hire' || isClient) ? 'Search for skills or services...' : 'Search for projects or jobs...'}
                 className="flex-1 py-4 px-6 text-base sm:text-lg bg-transparent font-medium border-none focus:outline-none placeholder-gray-400 focus:placeholder-gray-500"
               />
               
@@ -141,7 +150,7 @@ const HeroSection = () => {
                 type="submit"
                 className="bg-gray-900 text-white px-6 sm:px-8 py-4 sm:py-3 font-bold text-base sm:text-lg hover:bg-black cursor-pointer transition-all duration-200 whitespace-nowrap rounded-b-2xl sm:rounded-full sm:mr-1.5 hover:scale-105"
               >
-                {activeTab === 'hire' ? 'Browse Talent →' : 'Browse Jobs →'}
+                {(activeTab === 'hire' || isClient) ? 'Browse Talent →' : 'Browse Jobs →'}
               </button>
             </div>
           </form>
