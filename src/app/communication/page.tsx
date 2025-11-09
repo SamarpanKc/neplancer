@@ -554,7 +554,7 @@ I'm interested in discussing this project with you. Let me know if you're availa
                       <div
                         className={`px-4 py-2 rounded-2xl ${
                           isOwnMessage
-                            ? 'bg-primary text-gray-900'
+                            ? 'bg-primary text-gray-100'
                             : 'bg-white border border-gray-200 text-gray-900'
                         }`}
                       >

@@ -390,7 +390,7 @@ export default function BrowseJobsPage() {
                   <div className="flex gap-3 mt-6 pt-6 border-t border-gray-200">
                     <button
                       onClick={() => router.push(`/freelancer/my-proposals?apply=${job.id}`)}
-                      className="flex-1 px-6 py-3 bg-primary text-gray-900 rounded-lg hover:bg-primary/90 transition-colors font-semibold flex items-center justify-center gap-2"
+                      className="flex-1 px-6 py-3 bg-primary text-gray-100 rounded-lg hover:bg-primary/90 transition-colors font-semibold flex items-center justify-center gap-2"
                     >
                       Apply Now
                       <ArrowRight className="h-5 w-5" />

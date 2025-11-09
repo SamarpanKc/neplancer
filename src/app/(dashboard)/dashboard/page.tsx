@@ -337,7 +337,7 @@ export default function DashboardPage() {
                           <div className="flex items-center gap-4 text-sm text-gray-600">
                             <span className="flex items-center gap-1">
                               <DollarSign className="w-4 h-4" />
-                              NPR {contract.totalAmount.toLocaleString()}
+                              NPR {(contract.totalAmount || 0).toLocaleString()}
                             </span>
                             <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                               contract.status === 'active' ? 'bg-green-50 text-green-700' :
@@ -392,7 +392,7 @@ export default function DashboardPage() {
                           <div className="flex items-center gap-4 text-sm text-gray-600">
                             <span className="flex items-center gap-1">
                               <DollarSign className="w-4 h-4" />
-                              NPR {job.budget.toLocaleString()}
+                              NPR {(job.budget || 0).toLocaleString()}
                             </span>
                             <span className="flex items-center gap-1">
                               <Eye className="w-4 h-4" />
