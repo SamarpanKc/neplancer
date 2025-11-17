@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Manrope } from 'next/font/google';
-import { signUp } from '@/lib/auth';
+import { useAuth } from '@/hooks/useAuth';
 import { CheckCircle2, ArrowRight, ArrowLeft, User, Code, DollarSign, Upload, Star } from 'lucide-react';
 
 const manrope = Manrope({
@@ -22,10 +22,12 @@ const POPULAR_SKILLS = [
 
 export default function RegisterFreelancerPage() {
   const router = useRouter();
+  const { signUp, isLoading } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState({
     // Step 1: Basic Info
-    name: '',
+    fullName: '',
+    username: '',
     email: '',
     password: '',
     confirmPassword: '',
@@ -49,7 +51,6 @@ export default function RegisterFreelancerPage() {
     portfolioDescription: '',
   });
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
 
   const totalSteps = 5;
 
@@ -58,8 +59,12 @@ export default function RegisterFreelancerPage() {
     
     switch(step) {
       case 1:
-        if (!formData.name.trim()) {
+        if (!formData.fullName.trim()) {
           setError('Please enter your full name');
+          return false;
+        }
+        if (!formData.username.trim() || formData.username.length < 3) {
+          setError('Username must be at least 3 characters');
           return false;
         }
         if (!formData.email.trim() || !/\S+@\S+\.\S+/.test(formData.email)) {
@@ -96,10 +101,6 @@ export default function RegisterFreelancerPage() {
         return true;
         
       case 3:
-        if (formData.skills.length === 0) {
-          setError('Please select at least 3 skills');
-          return false;
-        }
         if (formData.skills.length < 3) {
           setError('Please select at least 3 skills');
           return false;
@@ -156,27 +157,23 @@ export default function RegisterFreelancerPage() {
     e.preventDefault();
     if (!validateStep(5)) return;
     
-    setLoading(true);
     try {
-      await signUp(formData.email, formData.password, {
-        name: formData.name,
+      await signUp({
+        email: formData.email,
+        password: formData.password,
+        fullName: formData.fullName,
         role: 'freelancer',
-        title: formData.title,
-        location: formData.location,
+        username: formData.username,
         skills: formData.skills,
         hourlyRate: parseFloat(formData.hourlyRate),
         bio: formData.bio,
-        experience: formData.experience,
-        category: formData.category,
-        portfolioUrl: formData.portfolioUrl,
+        title: formData.title,
       });
       
-      router.push('/freelancer/browse-jobs');
+      router.push('/freelancer/dashboard');
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed');
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -252,11 +249,26 @@ export default function RegisterFreelancerPage() {
                   </label>
                   <input
                     type="text"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    value={formData.fullName}
+                    onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0CF574]"
                     placeholder="Enter your full name"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Username *
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.username}
+                    onChange={(e) => setFormData({ ...formData, username: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '') })}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0CF574]"
+                    placeholder="your_username"
+                    minLength={3}
+                  />
+                  <p className="mt-1 text-xs text-gray-500">Lowercase letters, numbers, and underscores only</p>
                 </div>
 
                 <div>
@@ -558,7 +570,11 @@ export default function RegisterFreelancerPage() {
                   <div className="space-y-3">
                     <div>
                       <span className="text-sm text-gray-600">Name:</span>
-                      <p className="font-semibold">{formData.name}</p>
+                      <p className="font-semibold">{formData.fullName}</p>
+                    </div>
+                    <div>
+                      <span className="text-sm text-gray-600">Username:</span>
+                      <p className="font-semibold">@{formData.username}</p>
                     </div>
                     <div>
                       <span className="text-sm text-gray-600">Title:</span>
@@ -613,10 +629,10 @@ export default function RegisterFreelancerPage() {
               ) : (
                 <button
                   type="submit"
-                  disabled={loading}
+                  disabled={isLoading}
                   className="flex items-center gap-2 px-8 py-3 bg-[#0CF574] text-white rounded-lg font-semibold hover:bg-[#0CF574]/90 transition-colors ml-auto disabled:opacity-50"
                 >
-                  {loading ? 'Creating Profile...' : 'Complete Registration'}
+                  {isLoading ? 'Creating Profile...' : 'Complete Registration'}
                   <CheckCircle2 className="w-5 h-5" />
                 </button>
               )}

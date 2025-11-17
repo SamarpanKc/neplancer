@@ -1,3 +1,4 @@
+// app/api/auth/login/route.ts
 import { NextResponse } from 'next/server';
 import { signIn } from '@/lib/auth';
 
@@ -5,7 +6,6 @@ export async function POST(request: Request) {
   try {
     const { email, password } = await request.json();
     
-    // Validate input
     if (!email || !password) {
       return NextResponse.json(
         { error: 'Email and password are required' },
@@ -13,19 +13,17 @@ export async function POST(request: Request) {
       );
     }
 
-    // Use demo auth
-    const result = await signIn(email, password);
+    const data = await signIn(email, password);
 
     return NextResponse.json({
       success: true,
-      user: result.user,
-      session: result.session,
+      user: data.user,
+      session: data.session,
     });
-  } catch (error) {
-    console.error('Login error:', error);
+  } catch (error: any) {
     return NextResponse.json(
-      { error: 'Authentication failed' },
-      { status: 500 }
+      { error: error.message || 'Authentication failed' },
+      { status: 401 }
     );
   }
 }

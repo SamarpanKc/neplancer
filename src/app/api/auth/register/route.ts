@@ -1,39 +1,67 @@
+// app/api/auth/register/route.ts
 import { NextResponse } from 'next/server';
 import { signUp } from '@/lib/auth';
 
 export async function POST(request: Request) {
   try {
-    const { email, password, name, role } = await request.json();
+    const body = await request.json();
+    const { email, password, fullName, role } = body;
     
-    // Validate input
-    if (!email || !password || !name || !role) {
+    // Validate required fields
+    if (!email || !password || !fullName || !role) {
       return NextResponse.json(
-        { error: 'All fields are required' },
+        { error: 'Email, password, full name, and role are required' },
         { status: 400 }
       );
     }
 
-    if (!['client', 'freelancer'].includes(role)) {
+    // Validate role
+    if (role !== 'client' && role !== 'freelancer') {
       return NextResponse.json(
-        { error: 'Invalid role. Must be "client" or "freelancer"' },
+        { error: 'Role must be either "client" or "freelancer"' },
         { status: 400 }
       );
     }
 
-    // Use demo auth
-    const result = await signUp(email, password, { name, role });
+    // Validate freelancer-specific fields
+    if (role === 'freelancer' && !body.username) {
+      return NextResponse.json(
+        { error: 'Username is required for freelancers' },
+        { status: 400 }
+      );
+    }
+
+    // Prepare data for signup
+    const signUpData = {
+      email,
+      password,
+      fullName,
+      role,
+      // Freelancer fields
+      username: body.username,
+      skills: body.skills || [],
+      hourlyRate: body.hourlyRate || null,
+      bio: body.bio || null,
+      title: body.title || null,
+      // Client fields
+      companyName: body.companyName || null,
+      companyDescription: body.companyDescription || null,
+      website: body.website || null,
+      location: body.location || null,
+    };
+
+    const data = await signUp(signUpData);
 
     return NextResponse.json({
       success: true,
-      user: result.user,
-      session: result.session,
-      message: 'Registration successful! You can now explore the platform.',
+      user: data.user,
+      session: data.session,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Registration error:', error);
     return NextResponse.json(
-      { error: 'Registration failed' },
-      { status: 500 }
+      { error: error.message || 'Registration failed' },
+      { status: 400 }
     );
   }
 }

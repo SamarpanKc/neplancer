@@ -1,175 +1,196 @@
-// lib/auth.ts - DEMO MODE (Supabase Disabled)
-import { User } from '@/types';
-import { mockUsers, demoClientUser, demoFreelancerUser } from '@/data/mockData';
+// lib/auth.ts
+import { supabase } from './supabase';
+import type { User } from '@/types';
 
-// DEMO MODE: Get current user from localStorage
-export async function getCurrentUser(): Promise<User | null> {
+// --------------------
+// SIGN UP WITH PROFILE CREATION
+// --------------------
+export async function signUp(data: {
+  email: string;
+  password: string;
+  fullName: string;
+  role: 'client' | 'freelancer';
+  // Freelancer fields
+  username?: string;
+  skills?: string[];
+  hourlyRate?: number;
+  bio?: string;
+  title?: string;
+  // Client fields
+  companyName?: string;
+  companyDescription?: string;
+  website?: string;
+  location?: string;
+}) {
+  // 1. Create auth user
+  const { data: authData, error: authError } = await supabase.auth.signUp({
+    email: data.email,
+    password: data.password,
+  });
+
+  if (authError || !authData.user) {
+    throw new Error(authError?.message || 'Failed to create account');
+  }
+
   try {
-    const storedUser = getStoredUser();
-    if (storedUser) {
-      return storedUser;
+    // 2. Create profile
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .insert({
+        id: authData.user.id,
+        email: data.email,
+        full_name: data.fullName,
+        role: data.role,
+      });
+
+    if (profileError) {
+      throw new Error('Failed to create profile: ' + profileError.message);
     }
-    return null;
+
+    // 3. Create role-specific record
+    if (data.role === 'freelancer') {
+      if (!data.username) {
+        throw new Error('Username is required for freelancers');
+      }
+
+      const { error: freelancerError } = await supabase
+        .from('freelancers')
+        .insert({
+          profile_id: authData.user.id,
+          username: data.username,
+          skills: data.skills || [],
+          hourly_rate: data.hourlyRate || null,
+          bio: data.bio || null,
+          title: data.title || null,
+        });
+
+      if (freelancerError) {
+        throw new Error('Failed to create freelancer profile: ' + freelancerError.message);
+      }
+    } else {
+      // Client
+      const { error: clientError } = await supabase
+        .from('clients')
+        .insert({
+          profile_id: authData.user.id,
+          company_name: data.companyName || null,
+          company_description: data.companyDescription || null,
+          website: data.website || null,
+          location: data.location || null,
+        });
+
+      if (clientError) {
+        throw new Error('Failed to create client profile: ' + clientError.message);
+      }
+    }
+
+    return authData;
   } catch (error) {
-    console.error('Error getting current user:', error);
-    return null;
+    // Rollback: delete auth user if profile creation fails
+    await supabase.auth.admin.deleteUser(authData.user.id);
+    throw error;
   }
 }
 
-// Get current session (DEMO MODE)
-export async function getCurrentSession() {
-  try {
-    const user = getStoredUser();
-    if (!user) return null;
-    
-    return {
-      user,
-      access_token: 'demo_token',
-      expires_at: Date.now() + 3600000, // 1 hour from now
-    };
-  } catch (error) {
-    console.error('Error getting session:', error);
-    return null;
+// --------------------
+// SIGN IN
+// --------------------
+export async function signIn(email: string, password: string) {
+  const { data, error } = await supabase.auth.signInWithPassword({ 
+    email, 
+    password 
+  });
+  
+  if (error) {
+    throw error;
   }
+  
+  return data;
 }
 
-// Sign out (DEMO MODE)
+// --------------------
+// SIGN OUT
+// --------------------
 export async function signOut() {
-  try {
-    removeStoredUser();
-    removeAuthToken();
-  } catch (error) {
-    console.error('Error signing out:', error);
+  const { error } = await supabase.auth.signOut();
+  if (error) {
     throw error;
   }
 }
 
-// Sign in with email/password (DEMO MODE)
-export async function signIn(email: string, _password: string) {
-  try {
-    // Demo mode: Accept any email/password and return a mock user
-    const user = mockUsers.find(u => u.email === email) || demoClientUser;
-    
-    storeUser(user);
-    storeAuthToken('demo_token_' + user.id);
-    
-    return {
-      user,
-      session: {
-        access_token: 'demo_token_' + user.id,
-        expires_at: Date.now() + 3600000,
-      },
-    };
-  } catch (error) {
-    console.error('Error signing in:', error);
-    throw error;
-  }
-}
-
-// Sign up with email/password (DEMO MODE)
-export async function signUp(email: string, password: string, metadata?: Record<string, unknown>) {
-  try {
-    // Demo mode: Create a mock user
-    const newUser: User = {
-      id: 'user-' + Date.now(),
-      email,
-      name: metadata?.name as string || 'New User',
-      role: (metadata?.role as 'client' | 'freelancer') || 'freelancer',
-      avatar: `https://i.pravatar.cc/150?img=${Math.floor(Math.random() * 70)}`,
-      createdAt: new Date(),
-    };
-    
-    storeUser(newUser);
-    storeAuthToken('demo_token_' + newUser.id);
-    
-    return {
-      user: newUser,
-      session: {
-        access_token: 'demo_token_' + newUser.id,
-        expires_at: Date.now() + 3600000,
-      },
-    };
-  } catch (error) {
-    console.error('Error signing up:', error);
-    throw error;
-  }
-}
-
-// Refresh session (DEMO MODE)
-export async function refreshSession() {
-  try {
-    const user = getStoredUser();
-    if (!user) return null;
-    
-    return {
-      user,
-      access_token: 'demo_token_' + user.id,
-      expires_at: Date.now() + 3600000,
-    };
-  } catch (error) {
-    console.error('Error refreshing session:', error);
-    throw error;
-  }
-}
-
-// Listen to auth state changes (DEMO MODE)
-export function onAuthStateChange(callback: (user: User | null) => void) {
-  // In demo mode, just check localStorage on mount
-  const user = getStoredUser();
-  callback(user);
+// --------------------
+// GET CURRENT USER WITH PROFILE
+// --------------------
+export async function getCurrentUser(): Promise<User | null> {
+  const { data: { user }, error } = await supabase.auth.getUser();
   
-  // Return a mock subscription
-  return {
-    data: {
-      subscription: {
-        unsubscribe: () => {},
-      },
-    },
-  };
-}
-
-// Demo login helpers
-export async function loginAsClient() {
-  return signIn(demoClientUser.email, 'demo');
-}
-
-export async function loginAsFreelancer() {
-  return signIn(demoFreelancerUser.email, 'demo');
-}
-
-// Storage helpers
-export function getStoredUser(): User | null {
-  if (typeof window === 'undefined') return null;
-  
-  try {
-    const stored = localStorage.getItem('user');
-    return stored ? JSON.parse(stored) : null;
-  } catch {
+  if (error || !user) {
     return null;
   }
+
+  // Fetch profile to get role
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', user.id)
+    .single();
+
+  if (!profile) {
+    return null;
+  }
+
+  return {
+    ...user,
+    role: profile.role,
+    fullName: profile.full_name,
+  } as unknown as User;
 }
 
-export function storeUser(user: User) {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem('user', JSON.stringify(user));
+// --------------------
+// GET CURRENT SESSION
+// --------------------
+export async function getCurrentSession() {
+  const { data: { session }, error } = await supabase.auth.getSession();
+  if (error) {
+    console.error('Error fetching session:', error);
+    return null;
+  }
+  return session;
 }
 
-export function removeStoredUser() {
-  if (typeof window === 'undefined') return;
-  localStorage.removeItem('user');
+// --------------------
+// AUTH STATE CHANGE
+// --------------------
+export function onAuthStateChange(callback: (user: User | null) => void) {
+  const { data: listener } = supabase.auth.onAuthStateChange(async (event, session) => {
+    if (session?.user) {
+      const user = await getCurrentUser();
+      callback(user);
+    } else {
+      callback(null);
+    }
+  });
+  return listener;
 }
 
-export function getAuthToken(): string | null {
-  if (typeof window === 'undefined') return null;
-  return localStorage.getItem('authToken');
+// --------------------
+// PASSWORD RESET
+// --------------------
+export async function sendPasswordResetEmail(email: string) {
+  const { data, error } = await supabase.auth.resetPasswordForEmail(email);
+  if (error) {
+    throw error;
+  }
+  return data;
 }
 
-export function storeAuthToken(token: string) {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem('authToken', token);
-}
-
-export function removeAuthToken() {
-  if (typeof window === 'undefined') return;
-  localStorage.removeItem('authToken');
+// --------------------
+// REFRESH SESSION
+// --------------------
+export async function refreshSession() {
+  const { data, error } = await supabase.auth.refreshSession();
+  if (error) {
+    throw error;
+  }
+  return data;
 }
