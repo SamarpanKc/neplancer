@@ -3,7 +3,7 @@ import type { Database } from "@/types/database";
 type ProfilesRow = Database["public"]["Tables"]["profiles"]["Row"];
 type FreelancerRow = Database["public"]["Tables"]["freelancers"]["Row"];
 type ClientRow = Database["public"]["Tables"]["clients"]["Row"];
-
+type JobRow = Database["public"]["Tables"]["jobs"]["Row"];
 export function mapFreelancer(row: FreelancerRow & { profiles: ProfilesRow }, profile: ProfilesRow) {
   return {
     id: row.id,
@@ -50,5 +50,32 @@ export function mapClient(row: ClientRow & { profiles: ProfilesRow }, profile: P
       avatarUrl: profile.avatar_url,
       role: profile.role,
     },
+  };
+}
+
+export function mapJob(row: JobRow, client?: ClientRow & { profiles: ProfilesRow }) {
+  return {
+    id: row.id,
+    title: row.title,
+    description: row.description,
+    budget: row.budget,
+    category: row.category,
+    skills: row.skills || [],
+    status: row.status || 'open',
+    deadline: row.deadline,
+    clientId: row.client_id,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    // Include client info if provided
+    client: client ? {
+      id: client.id,
+      companyName: client.company_name,
+      location: client.location,
+      profile: {
+        id: client.profiles.id,
+        fullName: client.profiles.full_name,
+        avatarUrl: client.profiles.avatar_url,
+      }
+    } : undefined,
   };
 }
