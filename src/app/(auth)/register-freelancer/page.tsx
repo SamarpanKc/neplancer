@@ -644,7 +644,7 @@ export default function RegisterFreelancerPage() {
         <p className="text-center mt-6 text-gray-600">
           Already have an account?{' '}
           <Link href="/login" className="font-semibold text-gray-900 underline hover:text-gray-700">
-            Sign in
+            Log in
           </Link>
         </p>
       </div>
