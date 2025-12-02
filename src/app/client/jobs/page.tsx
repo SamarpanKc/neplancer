@@ -118,7 +118,7 @@ export default function ClientJobsPage() {
       setError(err.message || 'Failed to delete job');
     }
   };
-
+``
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'open':
