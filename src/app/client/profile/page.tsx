@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+
 import { 
   User, 
   DollarSign, 
@@ -12,6 +14,7 @@ import {
   CheckCircle,
   Camera
 } from 'lucide-react';
+import { routerServerGlobal } from 'next/dist/server/lib/router-utils/router-server-context';
 
 interface FreelancerData {
   username: string;
@@ -30,6 +33,9 @@ export default function FreelancerProfileSetup() {
   const [skillInput, setSkillInput] = useState('');
   const [avatarPreview, setAvatarPreview] = useState<string>('');
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const router = useRouter();
+  const [showDashboard,setBashboard]=useState(false);
+
   
   const [formData, setFormData] = useState<FreelancerData>({
     username: '',
@@ -379,6 +385,16 @@ export default function FreelancerProfileSetup() {
           </div>
         </div>
       </div>
+      <div className="flex justify-center">
+        
+  <button className="flex items-center text-gray-600 hover:text-gray-900 mb-4 transition underline"
+   onClick={() => router.push('/components/FreelancerDashboard')
+   }>
+    Skip for now
+  </button>
+</div>
+
     </div>
+    
   );
 }
