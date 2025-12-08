@@ -239,7 +239,7 @@ export default function FreelancerProfilePage() {
                     onClick={handleShare}
                     className="flex items-center justify-center px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:border-gray-400 transition-colors"
                   >
-                    <Share2 className="h-4 w-4 mr-2" />
+                    <Share2 className="h-4 w-4 mr-2"/>
                     Share
                   </button>
                 </div>
@@ -275,7 +275,7 @@ export default function FreelancerProfilePage() {
 
                   <div className="flex items-center justify-between">
                     <div className="flex items-center text-gray-600">
-                      <Clock className="h-5 w-5 mr-2 text-orange-600" />
+                      <Clock className="h-5 w-5 mr-2 text-orange-600"/>
                       <span className="text-sm">Response Time</span>
                     </div>
                     <span className="font-semibold text-gray-900">{freelancer.responseTime}</span>
@@ -283,7 +283,7 @@ export default function FreelancerProfilePage() {
 
                   <div className="flex items-center justify-between">
                     <div className="flex items-center text-gray-600">
-                      <ThumbsUp className="h-5 w-5 mr-2 text-pink-600" />
+                      <ThumbsUp className="h-5 w-5 mr-2 text-pink-600"/>
                       <span className="text-sm">Success Rate</span>
                     </div>
                     <span className="font-semibold text-gray-900">{freelancer.successRate}%</span>

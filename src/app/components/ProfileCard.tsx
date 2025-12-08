@@ -1,4 +1,4 @@
-"use client";
+       "use client";
 
 import { Star, Bookmark } from "lucide-react";
 import Image from "next/image";

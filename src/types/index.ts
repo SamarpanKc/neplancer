@@ -4,6 +4,7 @@ export interface User {
   email: string;
   name: string;
   role: 'client' | 'freelancer';
+  profile_completed : boolean;
   avatar?: string;
   createdAt: Date;
 }

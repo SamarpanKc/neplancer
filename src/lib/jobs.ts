@@ -289,4 +289,4 @@ async function decrementClientJobsPosted(clientId: string): Promise<void> {
       })
       .eq("id", clientId);
   }
-}
+} 

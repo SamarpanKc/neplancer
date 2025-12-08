@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth';
 import { demoApi } from '@/lib/demoApi';
+//import * as jobApi from '@/lib/jobs'
 import type { User, Job, Contract } from '@/types';
 
 export default function ClientDashboard() {
@@ -54,8 +55,11 @@ export default function ClientDashboard() {
     try {
       const [activityData, jobsData, contractsData] = await Promise.all([
         Promise.resolve([]),
-        demoApi.getJobsByClientId(user.id),
-        demoApi.getContractsByUserId(user.id)
+         demoApi.getJobsByClientId(user.id),
+         demoApi.getContractsByUserId(user.id)
+        // jobApi.getJobsByClientId(user.id),
+        
+        
       ]);
 
       const statsData = {

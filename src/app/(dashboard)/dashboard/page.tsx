@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { getCurrentUser } from '@/lib/auth';
 import FreelancerDashboard from '@/components/FreelancerDashboard';
 import ClientDashboard from '@/components/ClientDashboard';
+import FreelancerProfileSetup from '@/app/client/profile/newProfileFreelancer';
 import type { User } from '@/types';
 
 export default function DashboardPage() {
@@ -20,6 +21,8 @@ export default function DashboardPage() {
         return;
       }
       setCurrentUser(user);
+
+      
       setLoading(false);
     };
 
@@ -38,6 +41,9 @@ export default function DashboardPage() {
 
   // Route to appropriate dashboard based on user role
   if (currentUser.role === 'freelancer') {
+    if(!currentUser.profile_completed) {
+      return <FreelancerProfileSetup />;
+    }
     return <FreelancerDashboard />;
   }
 
