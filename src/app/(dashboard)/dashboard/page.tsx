@@ -36,16 +36,19 @@ useEffect(() => {
   // Route to appropriate dashboard based on user role
   if (currentUser.role === 'freelancer') {
     if(!currentUser.profile_completed) {
-      router.push('/client/profile');
+      router.push('/freelancer/createProfile');
     }else{
     router.push('/components/FreelancerDashboard');
     return;}
   }
 else if (currentUser.role === 'client') {
+  if(!currentUser.profile_completed) {
+    router.push('/client/profile');
+  }else{
   router.push('/components/ClientDashboard');
   return;
 }
-},[currentUser]);
+}},[currentUser]);
   
 
  if (loading) {

@@ -2,68 +2,39 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-
 import { 
-  User, 
-  DollarSign, 
+  Building,
   Link2,
+  MapPin,
   Save,
   ArrowLeft,
-  Plus,
-  X,
   CheckCircle,
-  Camera
+  Camera,
+  Globe
 } from 'lucide-react';
-import { routerServerGlobal } from 'next/dist/server/lib/router-utils/router-server-context';
 
-interface FreelancerData {
-  username: string;
-  title: string;
-  bio: string;
-  hourlyRate: number;
-  skills: string[];
-  portfolioUrl: string;
-  linkedinUrl: string;
-  githubUrl: string;
+interface ClientData {
+  companyName: string;
+  location: string;
+  website: string;
+  companyDescription: string;
+  industry: string;
 }
 
-export default function FreelancerProfileSetup() {
+export default function ClientProfileSetup() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [skillInput, setSkillInput] = useState('');
   const [avatarPreview, setAvatarPreview] = useState<string>('');
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const router = useRouter();
-  const [showDashboard,setBashboard]=useState(false);
-
   
-  const [formData, setFormData] = useState<FreelancerData>({
-    username: '',
-    title: '',
-    bio: '',
-    hourlyRate: 0,
-    skills: [],
-    portfolioUrl: '',
-    linkedinUrl: '',
-    githubUrl: ''
+  const [formData, setFormData] = useState<ClientData>({
+    companyName: '',
+    location: '',
+    website: '',
+    companyDescription: '',
+    industry: ''
   });
-
-  const handleAddSkill = () => {
-    if (skillInput.trim() && !formData.skills.includes(skillInput.trim())) {
-      setFormData({
-        ...formData,
-        skills: [...formData.skills, skillInput.trim()]
-      });
-      setSkillInput('');
-    }
-  };
-
-  const handleRemoveSkill = (skill: string) => {
-    setFormData({
-      ...formData,
-      skills: formData.skills.filter(s => s !== skill)
-    });
-  };
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -88,18 +59,8 @@ export default function FreelancerProfileSetup() {
   };
 
   const handleSubmit = async () => {
-    if (!formData.username || !formData.title || !formData.bio) {
+    if (!formData.companyName || !formData.location || !formData.companyDescription) {
       alert('Please fill in all required fields');
-      return;
-    }
-
-    if (formData.skills.length === 0) {
-      alert('Please add at least one skill');
-      return;
-    }
-
-    if (formData.hourlyRate <= 0) {
-      alert('Please enter a valid hourly rate');
       return;
     }
     
@@ -107,21 +68,21 @@ export default function FreelancerProfileSetup() {
     
     try {
       // TODO: Replace with actual Supabase integration
-      // 1. Upload avatar to Supabase Storage
-      // 2. Get avatar URL
-      // 3. Insert into freelancers table with profile_id from auth
+      // 1. Upload logo to Supabase Storage
+      // 2. Get logo URL
+      // 3. Insert into clients table with profile_id from auth
       
       await new Promise(resolve => setTimeout(resolve, 1500));
       
-      console.log('Freelancer profile saved:', {
+      console.log('Client profile saved:', {
         ...formData,
-        avatar: avatarFile ? 'Avatar file ready for upload' : null
+        logo: avatarFile ? 'Logo file ready for upload' : null
       });
       
       setSuccess(true);
       
       setTimeout(() => {
-        window.location.href = '/freelancer/dashboard';
+        window.location.href = '/client/dashboard';
       }, 2000);
     } catch (error) {
       console.error('Error saving profile:', error);
@@ -140,7 +101,7 @@ export default function FreelancerProfileSetup() {
           </div>
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Profile Created!</h2>
           <p className="text-gray-600 mb-4">
-            Your freelancer profile has been successfully created. Redirecting to dashboard...
+            Your company profile has been successfully created. Redirecting to dashboard...
           </p>
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#0CF574] mx-auto"></div>
         </div>
@@ -162,25 +123,25 @@ export default function FreelancerProfileSetup() {
           </button>
           <div className="flex items-center gap-3 mb-2">
             <div className="w-12 h-12 bg-[#0CF574]/10 rounded-full flex items-center justify-center">
-              <User className="w-6 h-6 text-[#0CF574]" />
+              <Building className="w-6 h-6 text-[#0CF574]" />
             </div>
             <div>
               <h1 className="text-3xl font-bold text-gray-900">
-                Complete Your Freelancer Profile
+                Complete Your Company Profile
               </h1>
             </div>
           </div>
           <p className="text-gray-600">
-            Set up your profile to start finding work and connecting with clients
+            Set up your company profile to start posting jobs and hiring talented freelancers
           </p>
         </div>
 
         {/* Form */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 space-y-6">
-          {/* Avatar Upload */}
+          {/* Logo Upload */}
           <div className="pb-6 border-b border-gray-200">
             <label className="block text-sm font-medium text-gray-700 mb-4">
-              Profile Picture
+              Company Logo
             </label>
             <div className="flex items-center gap-6">
               <div className="relative">
@@ -188,11 +149,11 @@ export default function FreelancerProfileSetup() {
                   {avatarPreview ? (
                     <img 
                       src={avatarPreview} 
-                      alt="Avatar preview" 
+                      alt="Logo preview" 
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <User className="w-12 h-12 text-gray-400" />
+                    <Building className="w-12 h-12 text-gray-400" />
                   )}
                 </div>
                 <label className="absolute bottom-0 right-0 w-8 h-8 bg-[#0CF574] rounded-full flex items-center justify-center cursor-pointer hover:bg-[#0CF574]/90 transition shadow-lg">
@@ -206,7 +167,7 @@ export default function FreelancerProfileSetup() {
                 </label>
               </div>
               <div className="flex-1">
-                <p className="text-sm text-gray-600 mb-1">Upload your profile picture</p>
+                <p className="text-sm text-gray-600 mb-1">Upload your company logo</p>
                 <p className="text-xs text-gray-500">JPG, PNG or GIF. Max size 5MB.</p>
                 {avatarFile && (
                   <p className="text-xs text-[#0CF574] mt-1 font-medium">
@@ -217,150 +178,107 @@ export default function FreelancerProfileSetup() {
             </div>
           </div>
 
-          {/* Username */}
+          {/* Company Name */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Username <span className="text-red-500">*</span>
+              Company Name <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
-              value={formData.username}
-              onChange={(e) => setFormData({...formData, username: e.target.value})}
+              value={formData.companyName}
+              onChange={(e) => setFormData({...formData, companyName: e.target.value})}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0CF574] focus:border-transparent outline-none"
-              placeholder="johndoe"
+              placeholder="Acme Corporation"
             />
-            <p className="text-xs text-gray-500 mt-1">This will be your unique identifier on the platform</p>
           </div>
 
-          {/* Professional Title */}
+          {/* Industry */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Professional Title <span className="text-red-500">*</span>
+              Industry
+            </label>
+            <select
+              value={formData.industry}
+              onChange={(e) => setFormData({...formData, industry: e.target.value})}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0CF574] focus:border-transparent outline-none"
+            >
+              <option value="">Select an industry</option>
+              <option value="technology">Technology</option>
+              <option value="finance">Finance</option>
+              <option value="healthcare">Healthcare</option>
+              <option value="education">Education</option>
+              <option value="retail">Retail</option>
+              <option value="manufacturing">Manufacturing</option>
+              <option value="consulting">Consulting</option>
+              <option value="marketing">Marketing & Advertising</option>
+              <option value="real-estate">Real Estate</option>
+              <option value="hospitality">Hospitality</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+
+          {/* Location */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              <MapPin className="w-4 h-4 inline mr-1" />
+              Location <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
-              value={formData.title}
-              onChange={(e) => setFormData({...formData, title: e.target.value})}
+              value={formData.location}
+              onChange={(e) => setFormData({...formData, location: e.target.value})}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0CF574] focus:border-transparent outline-none"
-              placeholder="Full Stack Developer"
+              placeholder="Kathmandu, Nepal"
+            />
+            <p className="text-xs text-gray-500 mt-1">City, Country or Region</p>
+          </div>
+
+          {/* Website */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              <Globe className="w-4 h-4 inline mr-1" />
+              Company Website
+            </label>
+            <input
+              type="url"
+              value={formData.website}
+              onChange={(e) => setFormData({...formData, website: e.target.value})}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0CF574] focus:border-transparent outline-none"
+              placeholder="https://www.yourcompany.com"
             />
           </div>
 
-          {/* Bio */}
+          {/* Company Description */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Bio <span className="text-red-500">*</span>
+              Company Description <span className="text-red-500">*</span>
             </label>
             <textarea
               rows={5}
-              value={formData.bio}
-              onChange={(e) => setFormData({...formData, bio: e.target.value})}
+              value={formData.companyDescription}
+              onChange={(e) => setFormData({...formData, companyDescription: e.target.value})}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0CF574] focus:border-transparent outline-none resize-none"
-              placeholder="Tell clients about yourself, your experience, and what makes you unique. Highlight your expertise and what you can offer..."
+              placeholder="Tell freelancers about your company, what you do, your mission, and what makes you unique..."
             />
-            <p className="text-xs text-gray-500 mt-1">{formData.bio.length} characters</p>
+            <p className="text-xs text-gray-500 mt-1">{formData.companyDescription.length} characters</p>
           </div>
 
-          {/* Hourly Rate */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              <DollarSign className="w-4 h-4 inline mr-1" />
-              Hourly Rate (NPR) <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="number"
-              min="0"
-              value={formData.hourlyRate || ''}
-              onChange={(e) => setFormData({...formData, hourlyRate: parseFloat(e.target.value) || 0})}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0CF574] focus:border-transparent outline-none"
-              placeholder="1000"
-            />
-            <p className="text-xs text-gray-500 mt-1">Set your base hourly rate for projects</p>
-          </div>
-
-          {/* Skills */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Skills <span className="text-red-500">*</span>
-            </label>
-            <div className="flex gap-2 mb-3">
-              <input
-                type="text"
-                value={skillInput}
-                onChange={(e) => setSkillInput(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddSkill())}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0CF574] focus:border-transparent outline-none"
-                placeholder="Add a skill (e.g., React, Python, UI/UX Design)"
-              />
-              <button
-                onClick={handleAddSkill}
-                className="px-4 py-2 bg-[#0CF574] text-white rounded-lg hover:bg-[#0CF574]/90 transition"
-              >
-                <Plus className="w-5 h-5" />
-              </button>
+          {/* Info Box */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="flex gap-3">
+              <div className="flex-shrink-0">
+                <Building className="w-5 h-5 text-blue-600" />
+              </div>
+              <div>
+                <h4 className="text-sm font-semibold text-blue-900 mb-1">Why complete your profile?</h4>
+                <ul className="text-xs text-blue-700 space-y-1">
+                  <li>• Attract high-quality freelancers</li>
+                  <li>• Build trust and credibility</li>
+                  <li>• Get better proposal responses</li>
+                  <li>• Stand out from other clients</li>
+                </ul>
+              </div>
             </div>
-            <div className="flex flex-wrap gap-2">
-              {formData.skills.map((skill) => (
-                <span
-                  key={skill}
-                  className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm flex items-center gap-2"
-                >
-                  {skill}
-                  <button
-                    onClick={() => handleRemoveSkill(skill)}
-                    className="hover:text-red-600 transition"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </span>
-              ))}
-            </div>
-            {formData.skills.length === 0 && (
-              <p className="text-xs text-gray-500 mt-2">Add at least one skill to showcase your expertise</p>
-            )}
-          </div>
-
-          {/* Portfolio URL */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              <Link2 className="w-4 h-4 inline mr-1" />
-              Portfolio URL
-            </label>
-            <input
-              type="url"
-              value={formData.portfolioUrl}
-              onChange={(e) => setFormData({...formData, portfolioUrl: e.target.value})}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0CF574] focus:border-transparent outline-none"
-              placeholder="https://yourportfolio.com"
-            />
-          </div>
-
-          {/* LinkedIn URL */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              LinkedIn Profile
-            </label>
-            <input
-              type="url"
-              value={formData.linkedinUrl}
-              onChange={(e) => setFormData({...formData, linkedinUrl: e.target.value})}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0CF574] focus:border-transparent outline-none"
-              placeholder="https://linkedin.com/in/yourprofile"
-            />
-          </div>
-
-          {/* GitHub URL */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              GitHub Profile
-            </label>
-            <input
-              type="url"
-              value={formData.githubUrl}
-              onChange={(e) => setFormData({...formData, githubUrl: e.target.value})}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0CF574] focus:border-transparent outline-none"
-              placeholder="https://github.com/yourusername"
-            />
           </div>
 
           {/* Submit Button */}
@@ -384,17 +302,15 @@ export default function FreelancerProfileSetup() {
             </p>
           </div>
         </div>
-      </div>
-      <div className="flex justify-center">
         
-  <button className="flex items-center text-gray-600 hover:text-gray-900 mb-4 transition underline"
-   onClick={() => router.push('/components/FreelancerDashboard')
-   }>
+        <div className="flex justify-center">
+   
+  <button className ="flex items-center text-gray-600 hover:text-gray-900 mb-4 transition underline"
+  onClick = {() => router.push('/components/ClientDashboard')}>
     Skip for now
-  </button>
-</div>
-
+    </button>
+      </div>
+      </div>
     </div>
-    
   );
 }
