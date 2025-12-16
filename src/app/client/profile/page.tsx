@@ -1,10 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/hooks/useAuth';
 import { 
   Building,
-  Link2,
   MapPin,
   Save,
   ArrowLeft,
@@ -14,11 +14,13 @@ import {
 } from 'lucide-react';
 
 interface ClientData {
+  clientType: 'individual' | 'company';
   companyName: string;
   location: string;
   website: string;
   companyDescription: string;
   industry: string;
+  jobTitle?: string; // For individual clients
 }
 
 export default function ClientProfileSetup() {
@@ -27,14 +29,37 @@ export default function ClientProfileSetup() {
   const [avatarPreview, setAvatarPreview] = useState<string>('');
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const router = useRouter();
+  const { user, initialize, isLoading } = useAuth();
   
   const [formData, setFormData] = useState<ClientData>({
+    clientType: 'individual',
     companyName: '',
     location: '',
     website: '',
     companyDescription: '',
-    industry: ''
+    industry: '',
+    jobTitle: '',
   });
+  
+  // Initialize auth on mount
+  useEffect(() => {
+    initialize();
+  }, [initialize]);
+
+  // Redirect if not authenticated or not a client
+  useEffect(() => {
+    if (user && user.role !== 'client') {
+      router.push('/dashboard');
+    } else if (!user && !isLoading) {
+      // Give some time for auth to initialize before redirecting
+      const timer = setTimeout(() => {
+        if (!user) {
+          router.push('/login');
+        }
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [user, router, isLoading]);
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -59,34 +84,78 @@ export default function ClientProfileSetup() {
   };
 
   const handleSubmit = async () => {
-    if (!formData.companyName || !formData.location || !formData.companyDescription) {
-      alert('Please fill in all required fields');
+    // Validation based on client type
+    if (formData.clientType === 'company') {
+      if (!formData.companyName || !formData.location || !formData.companyDescription) {
+        alert('Please fill in all required fields (Company Name, Location, Description)');
+        return;
+      }
+    } else {
+      // Individual client
+      if (!formData.location) {
+        alert('Please fill in your location');
+        return;
+      }
+    }
+
+    if (!user) {
+      alert('You must be logged in to create a profile');
+      router.push('/login');
       return;
     }
     
     setLoading(true);
     
     try {
-      // TODO: Replace with actual Supabase integration
-      // 1. Upload logo to Supabase Storage
-      // 2. Get logo URL
-      // 3. Insert into clients table with profile_id from auth
-      
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      console.log('Client profile saved:', {
-        ...formData,
-        logo: avatarFile ? 'Logo file ready for upload' : null
+      // Update client profile using the new endpoint
+      const clientResponse = await fetch(`/api/clients/update`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          client_type: formData.clientType,
+          company_name: formData.clientType === 'company' ? formData.companyName : null,
+          location: formData.location,
+          website: formData.website || null,
+          company_description: formData.clientType === 'company' ? formData.companyDescription : null,
+          industry: formData.industry || null,
+          job_title: formData.clientType === 'individual' ? formData.jobTitle : null,
+          // TODO: Add logo upload functionality
+        }),
       });
+
+      if (!clientResponse.ok) {
+        const errorData = await clientResponse.json();
+        throw new Error(errorData.error || 'Failed to update client profile');
+      }
+
+      // Update profile_completed flag
+      const profileResponse = await fetch('/api/auth/me', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          profile_completed: true,
+        }),
+      });
+
+      if (!profileResponse.ok) {
+        throw new Error('Failed to update profile status');
+      }
+
+      // Update local auth state
+      await initialize();
       
       setSuccess(true);
       
       setTimeout(() => {
-        window.location.href = '/client/dashboard';
-      }, 2000);
+        router.push('/dashboard');
+      }, 1500);
     } catch (error) {
       console.error('Error saving profile:', error);
-      alert('Failed to save profile. Please try again.');
+      alert(error instanceof Error ? error.message : 'Failed to save profile. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -127,21 +196,55 @@ export default function ClientProfileSetup() {
             </div>
             <div>
               <h1 className="text-3xl font-bold text-gray-900">
-                Complete Your Company Profile
+                Complete Your Client Profile
               </h1>
             </div>
           </div>
           <p className="text-gray-600">
-            Set up your company profile to start posting jobs and hiring talented freelancers
+            Set up your profile to start posting jobs and hiring talented freelancers
           </p>
         </div>
 
         {/* Form */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 space-y-6">
+          {/* Client Type Selection */}
+          <div className="pb-6 border-b border-gray-200">
+            <label className="block text-sm font-medium text-gray-700 mb-3">
+              I am hiring as
+            </label>
+            <div className="grid grid-cols-2 gap-4">
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, clientType: 'individual' })}
+                className={`p-4 border-2 rounded-lg transition-all duration-200 ${
+                  formData.clientType === 'individual'
+                    ? 'border-[#0CF574] bg-[#0CF574]/10 shadow-md'
+                    : 'border-gray-300 hover:border-gray-400'
+                }`}
+              >
+                <div className="text-3xl mb-2">👤</div>
+                <div className="font-semibold text-gray-900">Individual</div>
+                <div className="text-xs text-gray-600 mt-1">Personal projects</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, clientType: 'company' })}
+                className={`p-4 border-2 rounded-lg transition-all duration-200 ${
+                  formData.clientType === 'company'
+                    ? 'border-[#0CF574] bg-[#0CF574]/10 shadow-md'
+                    : 'border-gray-300 hover:border-gray-400'
+                }`}
+              >
+                <div className="text-3xl mb-2">🏢</div>
+                <div className="font-semibold text-gray-900">Company</div>
+                <div className="text-xs text-gray-600 mt-1">Business hiring</div>
+              </button>
+            </div>
+          </div>
           {/* Logo Upload */}
           <div className="pb-6 border-b border-gray-200">
             <label className="block text-sm font-medium text-gray-700 mb-4">
-              Company Logo
+              {formData.clientType === 'company' ? 'Company Logo' : 'Profile Picture'}
             </label>
             <div className="flex items-center gap-6">
               <div className="relative">
@@ -167,7 +270,9 @@ export default function ClientProfileSetup() {
                 </label>
               </div>
               <div className="flex-1">
-                <p className="text-sm text-gray-600 mb-1">Upload your company logo</p>
+                <p className="text-sm text-gray-600 mb-1">
+                  {formData.clientType === 'company' ? 'Upload your company logo' : 'Upload your profile picture'}
+                </p>
                 <p className="text-xs text-gray-500">JPG, PNG or GIF. Max size 5MB.</p>
                 {avatarFile && (
                   <p className="text-xs text-[#0CF574] mt-1 font-medium">
@@ -178,44 +283,64 @@ export default function ClientProfileSetup() {
             </div>
           </div>
 
-          {/* Company Name */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Company Name <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              value={formData.companyName}
-              onChange={(e) => setFormData({...formData, companyName: e.target.value})}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0CF574] focus:border-transparent outline-none"
-              placeholder="Acme Corporation"
-            />
-          </div>
+          {/* Company Name or Job Title based on type */}
+          {formData.clientType === 'company' ? (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <Building className="w-4 h-4 inline mr-1" />
+                Company Name <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={formData.companyName}
+                onChange={(e) => setFormData({...formData, companyName: e.target.value})}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0CF574] focus:border-transparent outline-none"
+                placeholder="Your Company Name Ltd."
+                required
+              />
+            </div>
+          ) : (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Your Job Title/Role (Optional)
+              </label>
+              <input
+                type="text"
+                value={formData.jobTitle || ''}
+                onChange={(e) => setFormData({...formData, jobTitle: e.target.value})}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0CF574] focus:border-transparent outline-none"
+                placeholder="e.g., Project Manager, Business Owner"
+              />
+              <p className="text-xs text-gray-500 mt-1">Help freelancers understand your role</p>
+            </div>
+          )}
 
-          {/* Industry */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Industry
-            </label>
-            <select
-              value={formData.industry}
-              onChange={(e) => setFormData({...formData, industry: e.target.value})}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0CF574] focus:border-transparent outline-none"
-            >
-              <option value="">Select an industry</option>
-              <option value="technology">Technology</option>
-              <option value="finance">Finance</option>
-              <option value="healthcare">Healthcare</option>
-              <option value="education">Education</option>
-              <option value="retail">Retail</option>
-              <option value="manufacturing">Manufacturing</option>
-              <option value="consulting">Consulting</option>
-              <option value="marketing">Marketing & Advertising</option>
-              <option value="real-estate">Real Estate</option>
-              <option value="hospitality">Hospitality</option>
-              <option value="other">Other</option>
-            </select>
-          </div>
+          {/* Industry - only for companies */}
+          {formData.clientType === 'company' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Industry
+              </label>
+              <select
+                value={formData.industry}
+                onChange={(e) => setFormData({...formData, industry: e.target.value})}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0CF574] focus:border-transparent outline-none"
+              >
+                <option value="">Select an industry</option>
+                <option value="technology">Technology</option>
+                <option value="finance">Finance</option>
+                <option value="healthcare">Healthcare</option>
+                <option value="education">Education</option>
+                <option value="retail">Retail</option>
+                <option value="manufacturing">Manufacturing</option>
+                <option value="consulting">Consulting</option>
+                <option value="marketing">Marketing & Advertising</option>
+                <option value="real-estate">Real Estate</option>
+                <option value="hospitality">Hospitality</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+          )}
 
           {/* Location */}
           <div>
@@ -237,31 +362,34 @@ export default function ClientProfileSetup() {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               <Globe className="w-4 h-4 inline mr-1" />
-              Company Website
+              {formData.clientType === 'company' ? 'Company Website' : 'Website/Portfolio (Optional)'}
             </label>
             <input
               type="url"
               value={formData.website}
               onChange={(e) => setFormData({...formData, website: e.target.value})}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0CF574] focus:border-transparent outline-none"
-              placeholder="https://www.yourcompany.com"
+              placeholder={formData.clientType === 'company' ? 'https://www.yourcompany.com' : 'https://yourwebsite.com'}
             />
           </div>
 
-          {/* Company Description */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Company Description <span className="text-red-500">*</span>
-            </label>
-            <textarea
-              rows={5}
-              value={formData.companyDescription}
-              onChange={(e) => setFormData({...formData, companyDescription: e.target.value})}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0CF574] focus:border-transparent outline-none resize-none"
-              placeholder="Tell freelancers about your company, what you do, your mission, and what makes you unique..."
-            />
-            <p className="text-xs text-gray-500 mt-1">{formData.companyDescription.length} characters</p>
-          </div>
+          {/* Company Description or About - conditional */}
+          {formData.clientType === 'company' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Company Description <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                rows={5}
+                value={formData.companyDescription}
+                onChange={(e) => setFormData({...formData, companyDescription: e.target.value})}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0CF574] focus:border-transparent outline-none resize-none"
+                placeholder="Tell freelancers about your company, what you do, your mission, and what makes you unique..."
+                required
+              />
+              <p className="text-xs text-gray-500 mt-1">{formData.companyDescription.length} characters</p>
+            </div>
+          )}
 
           {/* Info Box */}
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -270,12 +398,25 @@ export default function ClientProfileSetup() {
                 <Building className="w-5 h-5 text-blue-600" />
               </div>
               <div>
-                <h4 className="text-sm font-semibold text-blue-900 mb-1">Why complete your profile?</h4>
+                <h4 className="text-sm font-semibold text-blue-900 mb-1">
+                  {formData.clientType === 'company' ? 'Why complete your profile?' : 'Quick Tips for Hiring'}
+                </h4>
                 <ul className="text-xs text-blue-700 space-y-1">
-                  <li>• Attract high-quality freelancers</li>
-                  <li>• Build trust and credibility</li>
-                  <li>• Get better proposal responses</li>
-                  <li>• Stand out from other clients</li>
+                  {formData.clientType === 'company' ? (
+                    <>
+                      <li>• Attract high-quality freelancers</li>
+                      <li>• Build trust and credibility</li>
+                      <li>• Get better proposal responses</li>
+                      <li>• Stand out from other clients</li>
+                    </>
+                  ) : (
+                    <>
+                      <li>• Provide clear project details for better matches</li>
+                      <li>• Build your reputation with reviews</li>
+                      <li>• Secure payments through the platform</li>
+                      <li>• Communicate directly with freelancers</li>
+                    </>
+                  )}
                 </ul>
               </div>
             </div>

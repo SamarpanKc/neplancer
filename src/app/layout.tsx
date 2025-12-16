@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Navbar from "./components/navbar";
+import ErrorBoundary from "@/components/ErrorBoundary";
+import { Toaster } from "sonner";
+import { ReactQueryProvider } from "@/lib/providers/ReactQueryProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -29,8 +32,18 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         suppressHydrationWarning
       >
-        <Navbar />
-        {children}
+        <ReactQueryProvider>
+          <ErrorBoundary>
+            <Navbar />
+            {children}
+            <Toaster 
+              position="top-right"
+              richColors
+              closeButton
+              duration={4000}
+            />
+          </ErrorBoundary>
+        </ReactQueryProvider>
       </body>
     </html>
   );

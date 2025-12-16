@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Manrope } from 'next/font/google';
 import { useAuth } from '@/hooks/useAuth';
 import { User, Briefcase, Sparkles } from 'lucide-react';
+import { toast } from 'sonner';
 
 const manrope = Manrope({
   subsets: ["latin"],
@@ -28,11 +29,15 @@ export default function LoginPage() {
     try {
       await signIn(formData.email, formData.password);
       
+      toast.success('Login successful! Welcome back.');
+      
       // Redirect to dashboard (you can customize based on role later)
       router.push('/dashboard');
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed');
+      const errorMessage = err instanceof Error ? err.message : 'Login failed';
+      setError(errorMessage);
+      toast.error(errorMessage);
     }
   };
 
@@ -88,6 +93,11 @@ export default function LoginPage() {
                 className="appearance-none relative block w-full px-4 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0CF574] focus:border-transparent"
                 placeholder="••••••••"
               />
+              <div className="mt-2 text-right">
+                <Link href="/forgot-password" className="text-sm font-medium text-gray-900 hover:text-gray-700 hover:underline">
+                  Forgot password?
+                </Link>
+              </div>
             </div>
 
             <button

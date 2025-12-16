@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/hooks/useAuth';
 
 import { 
   User, 
@@ -14,7 +15,6 @@ import {
   CheckCircle,
   Camera
 } from 'lucide-react';
-import { routerServerGlobal } from 'next/dist/server/lib/router-utils/router-server-context';
 
 interface FreelancerData {
   username: string;
@@ -28,13 +28,33 @@ interface FreelancerData {
 }
 
 export default function FreelancerProfileSetup() {
-  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [skillInput, setSkillInput] = useState('');
   const [avatarPreview, setAvatarPreview] = useState<string>('');
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const router = useRouter();
-  const [showDashboard,setBashboard]=useState(false);
+  const { user, initialize, isLoading } = useAuth();
+
+  // Initialize auth on mount
+  useEffect(() => {
+    initialize();
+  }, [initialize]);
+
+  // Redirect if not authenticated or not a freelancer
+  useEffect(() => {
+    if (user && user.role !== 'freelancer') {
+      router.push('/dashboard');
+    } else if (!user && !isLoading) {
+      // Give some time for auth to initialize before redirecting
+      const timer = setTimeout(() => {
+        if (!user) {
+          router.push('/login');
+        }
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [user, router, isLoading]);
 
   
   const [formData, setFormData] = useState<FreelancerData>({
@@ -102,32 +122,67 @@ export default function FreelancerProfileSetup() {
       alert('Please enter a valid hourly rate');
       return;
     }
+
+    if (!user) {
+      alert('You must be logged in to create a profile');
+      router.push('/login');
+      return;
+    }
     
-    setLoading(true);
+    setSubmitting(true);
     
     try {
-      // TODO: Replace with actual Supabase integration
-      // 1. Upload avatar to Supabase Storage
-      // 2. Get avatar URL
-      // 3. Insert into freelancers table with profile_id from auth
-      
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      console.log('Freelancer profile saved:', {
-        ...formData,
-        avatar: avatarFile ? 'Avatar file ready for upload' : null
+      // Update freelancer profile
+      const freelancerResponse = await fetch('/api/freelancers', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          profile_id: user.id,
+          username: formData.username,
+          title: formData.title,
+          bio: formData.bio,
+          hourly_rate: formData.hourlyRate,
+          skills: formData.skills,
+          portfolio_url: formData.portfolioUrl,
+          // TODO: Add avatar upload functionality
+        }),
       });
+
+      if (!freelancerResponse.ok) {
+        const errorData = await freelancerResponse.json();
+        throw new Error(errorData.error || 'Failed to update freelancer profile');
+      }
+
+      // Update profile_completed flag
+      const profileResponse = await fetch('/api/auth/me', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          profile_completed: true,
+        }),
+      });
+
+      if (!profileResponse.ok) {
+        throw new Error('Failed to update profile status');
+      }
+
+      // Update local auth state
+      await initialize();
       
       setSuccess(true);
       
       setTimeout(() => {
-        window.location.href = '/freelancer/dashboard';
-      }, 2000);
+        router.push('/dashboard');
+      }, 1500);
     } catch (error) {
       console.error('Error saving profile:', error);
-      alert('Failed to save profile. Please try again.');
+      alert(error instanceof Error ? error.message : 'Failed to save profile. Please try again.');
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
@@ -367,10 +422,10 @@ export default function FreelancerProfileSetup() {
           <div className="pt-4 border-t border-gray-200">
             <button
               onClick={handleSubmit}
-              disabled={loading}
+              disabled={submitting}
               className="w-full px-6 py-3 bg-[#0CF574] text-white rounded-lg hover:bg-[#0CF574]/90 transition font-medium flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? (
+              {submitting ? (
                 <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
               ) : (
                 <>

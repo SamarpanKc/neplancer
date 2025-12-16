@@ -2,11 +2,22 @@
 export interface User {
   id: string;
   email: string;
-  name: string;
+  name?: string;
+  fullName?: string;
   role: 'client' | 'freelancer';
-  profile_completed : boolean;
+  profile_completed?: boolean;
   avatar?: string;
-  createdAt: Date;
+  avatarUrl?: string;
+  createdAt?: Date;
+  stats?: {
+    // Freelancer stats
+    completedJobs?: number;
+    totalEarnings?: number;
+    rating?: number;
+    // Client stats
+    jobsPosted?: number;
+    totalSpent?: number;
+  };
 }
 
 export interface Client extends User {

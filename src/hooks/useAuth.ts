@@ -10,6 +10,17 @@ interface User {
   email: string;
   role?: 'client' | 'freelancer';
   fullName?: string;
+  name?: string;
+  avatarUrl?: string;
+  stats?: {
+    // Freelancer stats
+    completedJobs?: number;
+    totalEarnings?: number;
+    rating?: number;
+    // Client stats
+    jobsPosted?: number;
+    totalSpent?: number;
+  };
 }
 
 interface SignUpData {
@@ -24,6 +35,7 @@ interface SignUpData {
   bio?: string;
   title?: string;
   // Client fields
+  clientType?: 'individual' | 'company';
   companyName?: string;
   companyDescription?: string;
   website?: string;
@@ -124,3 +136,9 @@ export const useAuth = create<AuthState>()(
     }
   )
 );
+
+// Helper selectors
+export const useAuthUser = () => useAuth((state) => state.user);
+export const useIsAuthenticated = () => useAuth((state) => !!state.user);
+export const useIsClient = () => useAuth((state) => state.user?.role === 'client');
+export const useIsFreelancer = () => useAuth((state) => state.user?.role === 'freelancer');

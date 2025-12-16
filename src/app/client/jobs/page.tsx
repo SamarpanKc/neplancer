@@ -101,7 +101,7 @@ export default function ClientJobsPage() {
 
   const handleDelete = async (jobId: string) => {
     try {
-      const response = await fetch(`/api/jobs?id=${jobId}`, {
+      const response = await fetch(`/api/jobs/${jobId}`, {
         method: 'DELETE',
       });
 
@@ -118,7 +118,7 @@ export default function ClientJobsPage() {
       setError(err.message || 'Failed to delete job');
     }
   };
-``
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'open':

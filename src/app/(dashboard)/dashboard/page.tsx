@@ -3,9 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getCurrentUser } from '@/lib/auth';
-
-
-import FreelancerProfileSetup from '@/app/client/profile/page';
+import FreelancerDashboard from '@/app/components/FreelancerDashboard/page';
+import ClientDashboard from '@/app/components/ClientDashboard/page';
 import type { User } from '@/types';
 
 export default function DashboardPage() {
@@ -21,42 +20,41 @@ export default function DashboardPage() {
         return;
       }
       setCurrentUser(user);
-
-      
       setLoading(false);
     };
 
     initDashboard();
-  }, []);
+  }, [router]);
 
- 
-useEffect(() => {
-  if (!currentUser) return;
+  useEffect(() => {
+    if (!currentUser || loading) return;
 
-  // Route to appropriate dashboard based on user role
-  if (currentUser.role === 'freelancer') {
-    if(!currentUser.profile_completed) {
-      router.push('/freelancer/createProfile');
-    }else{
-    router.push('/components/FreelancerDashboard');
-    return;}
-  }
-else if (currentUser.role === 'client') {
-  if(!currentUser.profile_completed) {
-    router.push('/client/profile');
-  }else{
-  router.push('/components/ClientDashboard');
-  return;
-}
-}},[currentUser]);
-  
+    // Check if profile is incomplete and redirect to profile creation
+    if (!currentUser.profile_completed) {
+      if (currentUser.role === 'freelancer') {
+        router.push('/freelancer/createProfile');
+      } else if (currentUser.role === 'client') {
+        router.push('/client/profile');
+      }
+    }
+  }, [currentUser, loading, router]);
 
- if (loading) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#0CF574]"></div>
       </div>
     );
   }
+
+  // Show appropriate dashboard based on role
+  if (currentUser?.role === 'freelancer' && currentUser.profile_completed) {
+    return <FreelancerDashboard />;
+  }
+
+  if (currentUser?.role === 'client' && currentUser.profile_completed) {
+    return <ClientDashboard />;
+  }
+
   return null;
 }

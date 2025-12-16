@@ -128,7 +128,7 @@ export async function getCurrentUser(): Promise<User | null> {
     return null;
   }
 
-  // Fetch profile to get role
+  // Fetch profile to get role and avatar
   const { data: profile } = await supabase
     .from('profiles')
     .select('*')
@@ -139,11 +139,48 @@ export async function getCurrentUser(): Promise<User | null> {
     return null;
   }
 
+  // Fetch role-specific data and stats
+  let stats = {};
+  
+  if (profile.role === 'freelancer') {
+    const { data: freelancerData } = await supabase
+      .from('freelancers')
+      .select('completed_jobs, total_earned, rating')
+      .eq('profile_id', user.id)
+      .single();
+    
+    if (freelancerData) {
+      stats = {
+        completedJobs: freelancerData.completed_jobs || 0,
+        totalEarnings: freelancerData.total_earned || 0,
+        rating: freelancerData.rating || 5.0,
+      };
+    }
+  } else if (profile.role === 'client') {
+    const { data: clientData } = await supabase
+      .from('clients')
+      .select('jobs_posted, total_spent')
+      .eq('profile_id', user.id)
+      .single();
+    
+    if (clientData) {
+      stats = {
+        jobsPosted: clientData.jobs_posted || 0,
+        totalSpent: clientData.total_spent || 0,
+      };
+    }
+  }
+
   return {
-    ...user,
+    id: user.id,
+    email: profile.email,
     role: profile.role,
     fullName: profile.full_name,
-  } as unknown as User;
+    name: profile.full_name,
+    avatarUrl: profile.avatar_url,
+    profile_completed: profile.profile_completed,
+    stats,
+  } as User;
 }
 
 // --------------------

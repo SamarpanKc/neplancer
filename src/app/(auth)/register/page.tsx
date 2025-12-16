@@ -20,9 +20,22 @@ export default function RegisterPage() {
     password: '',
     confirmPassword: '',
     role: 'freelancer' as 'client' | 'freelancer',
+    clientType: 'individual' as 'individual' | 'company', // New field
     username: '',
   });
   const [error, setError] = useState('');
+  const [passwordStrength, setPasswordStrength] = useState(0);
+
+  // Password strength checker
+  const checkPasswordStrength = (password: string) => {
+    let strength = 0;
+    if (password.length >= 8) strength++;
+    if (password.length >= 12) strength++;
+    if (/[a-z]/.test(password) && /[A-Z]/.test(password)) strength++;
+    if (/\d/.test(password)) strength++;
+    if (/[^a-zA-Z\d]/.test(password)) strength++;
+    setPasswordStrength(strength);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,14 +69,11 @@ export default function RegisterPage() {
         fullName: formData.fullName,
         role: formData.role,
         username: formData.role === 'freelancer' ? formData.username : undefined,
+        clientType: formData.role === 'client' ? formData.clientType : undefined,
       });
 
-      // Redirect based on role
-      if (formData.role === 'client') {
-        router.push('/client/dashboard');
-      } else {
-        router.push('/freelancer/dashboard');
-      }
+      // Redirect to dashboard (it will redirect to profile creation if needed)
+      router.push('/dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed');
     }
@@ -101,32 +111,79 @@ export default function RegisterPage() {
               <button
                 type="button"
                 onClick={() => setFormData({ ...formData, role: 'freelancer' })}
-                className={`flex-1 py-3 px-4 border-2 rounded-lg font-semibold transition-all duration-200 ${
+                className={`flex-1 py-4 px-4 border-2 rounded-lg font-semibold transition-all duration-200 ${
                   formData.role === 'freelancer'
-                    ? 'border-gray-900 bg-gray-900 text-white'
+                    ? 'border-[#0CF574] bg-[#0CF574]/10 text-gray-900 shadow-md'
                     : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400 cursor-pointer'
                 }`}
               >
-                Find Work
+                <div className="text-2xl mb-1">💼</div>
+                <div className="font-bold">Find Work</div>
+                <div className="text-xs mt-1 opacity-75">As a Freelancer</div>
               </button>
               <button
                 type="button"
                 onClick={() => setFormData({ ...formData, role: 'client' })}
-                className={`flex-1 py-3 px-4 border-2 rounded-lg font-semibold transition-all duration-200 ${
+                className={`flex-1 py-4 px-4 border-2 rounded-lg font-semibold transition-all duration-200 ${
                   formData.role === 'client'
-                    ? 'border-gray-900 bg-gray-900 text-white'
+                    ? 'border-[#0CF574] bg-[#0CF574]/10 text-gray-900 shadow-md'
                     : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400 cursor-pointer'
                 }`}
               >
-                Hire Talent
+                <div className="text-2xl mb-1">🎯</div>
+                <div className="font-bold">Hire Talent</div>
+                <div className="text-xs mt-1 opacity-75">As a Client</div>
               </button>
             </div>
           </div>
 
+          {/* Client Type Selection - only for clients */}
+          {formData.role === 'client' && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <label className="block text-sm font-semibold text-gray-700 mb-3">
+                You are
+              </label>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, clientType: 'individual' })}
+                  className={`flex-1 py-3 px-3 border-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
+                    formData.clientType === 'individual'
+                      ? 'border-blue-600 bg-blue-600 text-white shadow-sm'
+                      : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400 cursor-pointer'
+                  }`}
+                >
+                  <div className="text-lg mb-1">👤</div>
+                  Individual
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, clientType: 'company' })}
+                  className={`flex-1 py-3 px-3 border-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
+                    formData.clientType === 'company'
+                      ? 'border-blue-600 bg-blue-600 text-white shadow-sm'
+                      : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400 cursor-pointer'
+                  }`}
+                >
+                  <div className="text-lg mb-1">🏢</div>
+                  Company
+                </button>
+              </div>
+              <p className="mt-2 text-xs text-gray-600">
+                {formData.clientType === 'individual' 
+                  ? 'Hiring for personal projects or short-term work' 
+                  : 'Hiring on behalf of a company or organization'}
+              </p>
+            </div>
+          )}
+
           <div className="space-y-4">
             <div>
               <label htmlFor="fullName" className="block text-sm font-semibold text-gray-700 mb-2">
-                Full name
+                {formData.role === 'client' && formData.clientType === 'company' 
+                  ? 'Your Full Name' 
+                  : 'Full Name'}
+                <span className="text-red-500 ml-1">*</span>
               </label>
               <input
                 id="fullName"
@@ -136,38 +193,46 @@ export default function RegisterPage() {
                 required
                 value={formData.fullName}
                 onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                className="appearance-none relative block w-full px-4 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-                placeholder="Samarpan KC"
+                className="appearance-none relative block w-full px-4 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0CF574] focus:border-transparent"
+                placeholder={formData.role === 'client' && formData.clientType === 'company' ? 'John Doe' : 'Samarpan KC'}
               />
+              {formData.role === 'client' && formData.clientType === 'company' && (
+                <p className="mt-1 text-xs text-gray-500">
+                  Your personal name (company details will be added later)
+                </p>
+              )}
             </div>
 
             {/* Username field - only for freelancers */}
             {formData.role === 'freelancer' && (
-              <div>
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
                 <label htmlFor="username" className="block text-sm font-semibold text-gray-700 mb-2">
-                  Username
+                  Username <span className="text-red-500">*</span>
                 </label>
-                <input
-                  id="username"
-                  name="username"
-                  type="text"
-                  autoComplete="username"
-                  required
-                  value={formData.username}
-                  onChange={(e) => setFormData({ ...formData, username: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '') })}
-                  className="appearance-none relative block w-full px-4 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-                  placeholder="samarpan_kc"
-                  minLength={3}
-                />
-                <p className="mt-1 text-xs text-gray-500">
-                  Unique username for your profile (lowercase letters, numbers, and underscores only)
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">@</span>
+                  <input
+                    id="username"
+                    name="username"
+                    type="text"
+                    autoComplete="username"
+                    required
+                    value={formData.username}
+                    onChange={(e) => setFormData({ ...formData, username: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '') })}
+                    className="appearance-none relative block w-full pl-8 pr-4 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0CF574] focus:border-transparent"
+                    placeholder="samarpan_kc"
+                    minLength={3}
+                  />
+                </div>
+                <p className="mt-2 text-xs text-gray-600">
+                  ✓ Your unique profile URL will be: neplancer.com/@{formData.username || 'your-username'}
                 </p>
               </div>
             )}
 
             <div>
               <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-2">
-                Email address
+                Email address <span className="text-red-500">*</span>
               </label>
               <input
                 id="email"
@@ -177,14 +242,14 @@ export default function RegisterPage() {
                 required
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="appearance-none relative block w-full px-4 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                className="appearance-none relative block w-full px-4 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0CF574] focus:border-transparent"
                 placeholder="yourmail@domain.com"
               />
             </div>
 
             <div>
               <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-2">
-                Password
+                Password <span className="text-red-500">*</span>
               </label>
               <input
                 id="password"
@@ -193,16 +258,46 @@ export default function RegisterPage() {
                 autoComplete="new-password"
                 required
                 value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                className="appearance-none relative block w-full px-4 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                onChange={(e) => {
+                  setFormData({ ...formData, password: e.target.value });
+                  checkPasswordStrength(e.target.value);
+                }}
+                className="appearance-none relative block w-full px-4 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0CF574] focus:border-transparent"
                 placeholder="••••••••"
               />
+              {formData.password && (
+                <div className="mt-2">
+                  <div className="flex gap-1 mb-1">
+                    {[1, 2, 3, 4, 5].map((level) => (
+                      <div
+                        key={level}
+                        className={`h-1 flex-1 rounded-full transition-colors ${
+                          level <= passwordStrength
+                            ? passwordStrength <= 2
+                              ? 'bg-red-500'
+                              : passwordStrength <= 3
+                              ? 'bg-yellow-500'
+                              : 'bg-green-500'
+                            : 'bg-gray-200'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                  <p className="text-xs text-gray-600">
+                    Password strength: {
+                      passwordStrength <= 2 ? '🔴 Weak' :
+                      passwordStrength <= 3 ? '🟡 Medium' :
+                      '🟢 Strong'
+                    }
+                  </p>
+                </div>
+              )}
               <p className="mt-1 text-xs text-gray-500">Must be at least 8 characters</p>
             </div>
 
             <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-semibold text-gray-700 mb-2 ">
-                Confirm password
+              <label htmlFor="confirmPassword" className="block text-sm font-semibold text-gray-700 mb-2">
+                Confirm password <span className="text-red-500">*</span>
               </label>
               <input
                 id="confirmPassword"
@@ -212,9 +307,19 @@ export default function RegisterPage() {
                 required
                 value={formData.confirmPassword}
                 onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                className="appearance-none relative block w-full px-4 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                className="appearance-none relative block w-full px-4 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0CF574] focus:border-transparent"
                 placeholder="••••••••"
               />
+              {formData.confirmPassword && formData.password !== formData.confirmPassword && (
+                <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+                  <span>❌</span> Passwords do not match
+                </p>
+              )}
+              {formData.confirmPassword && formData.password === formData.confirmPassword && (
+                <p className="mt-1 text-xs text-green-600 flex items-center gap-1">
+                  <span>✓</span> Passwords match
+                </p>
+              )}
             </div>
           </div>
 
