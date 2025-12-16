@@ -11,7 +11,7 @@ interface FreelancerCardProps {
   rating: number;
 }
 
-export default function FreelancerCard({ 
+export function FreelancerCard({ 
   name, 
   username, 
   avatar, 

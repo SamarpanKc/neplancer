@@ -1,5 +1,4 @@
-import { useQuery } from '@tantml:invoke name="create_file">
-<parameter name="content">import { useQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import type { Freelancer } from '@/types';
 
 // ==========================================

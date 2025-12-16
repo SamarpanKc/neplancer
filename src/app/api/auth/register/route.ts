@@ -1,10 +1,6 @@
 // app/api/auth/register/route.ts
 import { NextResponse } from 'next/server';
 import { signUp } from '@/lib/auth';
-
-// app/api/auth/register/route.ts
-import { NextResponse } from 'next/server';
-import { signUp } from '@/lib/auth';
 import { signUpSchema } from '@/lib/validations';
 import { ZodError } from 'zod';
 
