@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Manrope } from "next/font/google";
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
-import FreelancerCard from './FreelancerCard';
+import { FreelancerCard } from './FreelancerCard';
 import { freelancersData } from '@/data/freelancers';
 
 const manrope = Manrope({
