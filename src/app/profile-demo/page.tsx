@@ -1,6 +1,6 @@
 "use client";
 
-import FreelancerCard from "@/app/components/FreelancerCard";
+import { FreelancerCard } from "@/app/components/FreelancerCard";
 
 export default function ProfileDemoPage() {
   return (
