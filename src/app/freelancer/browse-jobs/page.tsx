@@ -14,7 +14,7 @@ import {
   Users,
   Award
 } from 'lucide-react';
-import { demoApi } from '@/lib/demoApi';
+import { getAllOpenJobs } from '@/lib/job';
 import { Job } from '@/types';
 import { getCurrentUser } from '@/lib/auth';
 
@@ -49,15 +49,13 @@ export default function BrowseJobsPage() {
         router.push('/login');
         return;
       }
+      // Load jobs after user verification
+      await loadJobs();
+      loadSavedJobs();
     }
     
     initializeUser();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    loadJobs();
-    loadSavedJobs();
   }, []);
 
   useEffect(() => {
@@ -68,21 +66,62 @@ export default function BrowseJobsPage() {
   const loadJobs = async () => {
     try {
       setLoading(true);
-      const allJobs = await demoApi.getAllJobs();
-      // Only show open jobs
-      const openJobs = allJobs.filter(job => job.status === 'open');
-      setJobs(openJobs);
-      setFilteredJobs(openJobs);
+
+      // Fetch all open jobs from database
+      const dbJobs = await getAllOpenJobs();
+
+      console.log('Raw database jobs:', dbJobs); // Debug log
+
+      // Check if dbJobs is valid
+      if (!dbJobs || !Array.isArray(dbJobs)) {
+        console.error('Invalid data received from getAllOpenJobs:', dbJobs);
+        setJobs([]);
+        setFilteredJobs([]);
+        return;
+      }
+
+      // Transform database format to Job type
+      const formattedJobs: Job[] = dbJobs.map(job => ({
+        id: job.id,
+        title: job.title,
+        description: job.description,
+        category: job.category,
+        budget: job.budget,
+        skills: job.skills ?? [],
+        status: job.status as 'open' | 'in_progress' | 'completed' | 'cancelled',
+        createdAt: new Date(job.created_at),
+        deadline: job.deadline ? new Date(job.deadline) : undefined,
+        clientId: job.client_id,
+        // Note: client data would need to be joined in the query
+        // For now, leaving it undefined unless you update getAllOpenJobs
+      }));
+
+      console.log('Formatted jobs:', formattedJobs); // Debug log
+
+      setJobs(formattedJobs);
+      setFilteredJobs(formattedJobs);
+
     } catch (error) {
       console.error('Error loading jobs:', error);
+      console.error('Error details:', JSON.stringify(error, null, 2));
+      // Show empty state instead of breaking
+      setJobs([]);
+      setFilteredJobs([]);
     } finally {
       setLoading(false);
     }
   };
 
   const loadSavedJobs = () => {
-    const saved = JSON.parse(localStorage.getItem('savedJobs') || '[]');
-    setSavedJobs(saved);
+    // Temporary localStorage solution
+    // TODO: Replace with database query to fetch user's saved jobs
+    try {
+      const saved = JSON.parse(localStorage.getItem('savedJobs') || '[]');
+      setSavedJobs(saved);
+    } catch (error) {
+      console.error('Error loading saved jobs:', error);
+      setSavedJobs([]);
+    }
   };
 
   const filterJobs = () => {
@@ -127,6 +166,8 @@ export default function BrowseJobsPage() {
   };
 
   const toggleSaveJob = (jobId: string) => {
+    // Temporary localStorage solution
+    // TODO: Replace with API call to save/unsave job in database
     let updated;
     if (savedJobs.includes(jobId)) {
       updated = savedJobs.filter(id => id !== jobId);

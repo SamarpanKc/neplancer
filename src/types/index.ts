@@ -140,3 +140,12 @@ export interface Review {
   date: string;
   createdAt: Date;
 }
+
+export type FreelancerProfileFormData = {
+  username: string;
+  title: string;
+  bio: string;
+  hourlyRate: number;
+  skills: string[];
+  portfolioUrl?: string | null;
+};

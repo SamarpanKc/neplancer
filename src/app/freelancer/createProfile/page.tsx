@@ -3,6 +3,10 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
+import {updateFreelancer} from '@/app/components/freelancer/updatefreelancerprofile';
+import type {FreelancerProfileFormData} from '@/types'
+import { UploadAvatar } from '@/app/components/avatarUpload';
+
 
 import { 
   User, 
@@ -41,7 +45,7 @@ export default function FreelancerProfileSetup() {
     initialize();
   }, [initialize]);
 
-  // Redirect if not authenticated or not a freelancer
+  //Redirect if not authenticated or not a freelancer
   useEffect(() => {
     if (user && user.role !== 'freelancer') {
       router.push('/dashboard');
@@ -98,7 +102,7 @@ export default function FreelancerProfileSetup() {
         return;
       }
 
-      setAvatarFile(file);
+      UploadAvatar(file);
       const reader = new FileReader();
       reader.onloadend = () => {
         setAvatarPreview(reader.result as string);
@@ -132,52 +136,8 @@ export default function FreelancerProfileSetup() {
     setSubmitting(true);
     
     try {
-      // Update freelancer profile
-      const freelancerResponse = await fetch('/api/freelancers', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          profile_id: user.id,
-          username: formData.username,
-          title: formData.title,
-          bio: formData.bio,
-          hourly_rate: formData.hourlyRate,
-          skills: formData.skills,
-          portfolio_url: formData.portfolioUrl,
-          // TODO: Add avatar upload functionality
-        }),
-      });
-
-      if (!freelancerResponse.ok) {
-        const errorData = await freelancerResponse.json();
-        throw new Error(errorData.error || 'Failed to update freelancer profile');
-      }
-
-      // Update profile_completed flag
-      const profileResponse = await fetch('/api/auth/me', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          profile_completed: true,
-        }),
-      });
-
-      if (!profileResponse.ok) {
-        throw new Error('Failed to update profile status');
-      }
-
-      // Update local auth state
-      await initialize();
-      
-      setSuccess(true);
-      
-      setTimeout(() => {
-        router.push('/dashboard');
-      }, 1500);
+     await updateFreelancer(formData);
+     alert('Profile created successfully!');
     } catch (error) {
       console.error('Error saving profile:', error);
       alert(error instanceof Error ? error.message : 'Failed to save profile. Please try again.');

@@ -46,7 +46,6 @@ export default function PostJobPage() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  // Auth check
   useEffect(() => {
     if (!authLoading && !user) {
       router.push('/login');
@@ -107,44 +106,37 @@ export default function PostJobPage() {
     setIsLoading(true);
 
     try {
-      // First, fetch the client ID using the user's profile ID
-      console.log('Fetching client for profile ID:', user?.id);
+      console.log('Starting job post...', { userId: user?.id });
+
+      // Fetch client profile
       const clientResponse = await fetch(`/api/clients?profileId=${user?.id}`);
       
-      // Log the response status
-      console.log('Client response status:', clientResponse.status);
-      
-      // Get response text first to see what we're getting
-      const clientText = await clientResponse.text();
-      console.log('Client response text:', clientText);
-
-      // Try to parse as JSON
-      let clientData;
-      try {
-        clientData = JSON.parse(clientText);
-      } catch (parseError) {
-        console.error('Failed to parse client response:', parseError);
-        throw new Error('Invalid response from server. Please check console for details.');
+      if (!clientResponse.ok) {
+        const errorText = await clientResponse.text();
+        console.error('Client fetch error:', errorText);
+        throw new Error('Failed to fetch client profile');
       }
 
-      if (!clientResponse.ok || !clientData.client) {
-        throw new Error(clientData.error || 'Client profile not found. Please try logging in again.');
+      const clientData = await clientResponse.json();
+      console.log('Client data:', clientData);
+
+      if (!clientData.client?.id) {
+        throw new Error('Client profile not found');
       }
 
-      console.log('Client ID found:', clientData.client.id);
-
-      // Now create the job with the client ID
+      // Create job with correct field names (snake_case for database)
       const jobPayload = {
-        clientId: clientData.client.id,
-        title: formData.title,
-        description: formData.description,
+        client_id: clientData.client.id,  // MUST be snake_case
+        title: formData.title.trim(),
+        description: formData.description.trim(),
         budget: parseFloat(formData.budget),
         category: formData.category,
         skills: formData.skills,
         deadline: formData.deadline || null,
+        status: 'open',
       };
 
-      console.log('Creating job with payload:', jobPayload);
+      console.log('Posting job:', jobPayload);
 
       const response = await fetch('/api/jobs', {
         method: 'POST',
@@ -152,32 +144,19 @@ export default function PostJobPage() {
         body: JSON.stringify(jobPayload),
       });
 
-      console.log('Job response status:', response.status);
-
-      // Get response text first
-      const responseText = await response.text();
-      console.log('Job response text:', responseText);
-
-      // Try to parse as JSON
-      let data;
-      try {
-        data = JSON.parse(responseText);
-      } catch (parseError) {
-        console.error('Failed to parse job response:', parseError);
-        throw new Error('Invalid response from server. Please check console for details.');
-      }
+      const responseData = await response.json();
+      console.log('Job post response:', responseData);
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to post job');
+        throw new Error(responseData.error || 'Failed to post job');
       }
 
-      console.log('Job created successfully:', data);
-
-      // Success! Redirect to jobs page
+      console.log('✅ Job posted successfully!');
       router.push('/client/jobs');
+      
     } catch (err: any) {
-      console.error('Error in handleSubmit:', err);
-      setError(err.message || 'Failed to post job');
+      console.error('Error posting job:', err);
+      setError(err.message || 'Failed to post job. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -194,7 +173,6 @@ export default function PostJobPage() {
   return (
     <div className={`${manrope.className} min-h-screen bg-gradient-to-br from-background via-[#0CF574]/5 to-background px-4 py-12`}>
       <div className="max-w-4xl mx-auto">
-        {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-4xl md:text-5xl font-extrabold text-gray-900 mb-2">
             Post a Job
@@ -204,11 +182,11 @@ export default function PostJobPage() {
           </p>
         </div>
 
-        {/* Form Card */}
         <div className="bg-white rounded-2xl shadow-lg p-8">
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm mb-6">
-              {error}
+              <p className="font-semibold">Error:</p>
+              <p>{error}</p>
             </div>
           )}
 
@@ -239,14 +217,13 @@ export default function PostJobPage() {
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0CF574] min-h-[150px]"
-                placeholder="Describe your project in detail... What are you looking for? What are the requirements?"
+                placeholder="Describe your project in detail..."
               />
               <p className="mt-1 text-sm text-gray-500">{formData.description.length} characters</p>
             </div>
 
-            {/* Budget & Category Row */}
+            {/* Budget & Category */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Budget */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Budget (NPR) *
@@ -265,7 +242,6 @@ export default function PostJobPage() {
                 </div>
               </div>
 
-              {/* Category */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Category *
@@ -286,7 +262,7 @@ export default function PostJobPage() {
               </div>
             </div>
 
-            {/* Deadline (Optional) */}
+            {/* Deadline */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
                 Deadline (Optional)
@@ -303,7 +279,7 @@ export default function PostJobPage() {
               </div>
             </div>
 
-            {/* Skills Selection */}
+            {/* Skills */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-3">
                 Required Skills *
@@ -325,7 +301,6 @@ export default function PostJobPage() {
                 ))}
               </div>
 
-              {/* Custom Skill Input */}
               <div className="flex gap-2">
                 <input
                   type="text"
@@ -344,7 +319,6 @@ export default function PostJobPage() {
                 </button>
               </div>
 
-              {/* Selected Skills */}
               {formData.skills.length > 0 && (
                 <div className="mt-4">
                   <p className="text-sm font-semibold text-gray-700 mb-2">
@@ -371,7 +345,7 @@ export default function PostJobPage() {
               )}
             </div>
 
-            {/* Submit Button */}
+            {/* Submit */}
             <div className="flex justify-end gap-4 pt-6 border-t">
               <button
                 type="button"

@@ -1,68 +1,114 @@
-// app/api/jobs/route.ts
-import { NextResponse } from 'next/server';
-import { getAllJobs, createJob, getJobsByClientId } from '@/lib/jobs';
-import { createJobSchema } from '@/lib/validations';
-import { ZodError } from 'zod';
+import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabse/server';
 
-// GET /api/jobs - Get all jobs or jobs by client ID
-export async function GET(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const clientId = searchParams.get('clientId');
-    const status = searchParams.get('status');
+    const body = await request.json();
+    console.log('📥 Received job post request:', body);
 
-    let jobs;
-    if (clientId) {
-      jobs = await getJobsByClientId(clientId);
-      
-      // Filter by status if provided
-      if (status && status !== 'all') {
-        jobs = jobs.filter(job => job.status === status);
-      }
-    } else {
-      jobs = await getAllJobs();
+    // Validate required fields
+    const { client_id, title, description, budget, category, skills, status } = body;
+
+    if (!client_id) {
+      console.error('❌ Missing client_id');
+      return NextResponse.json(
+        { error: 'client_id is required' },
+        { status: 400 }
+      );
     }
 
-    return NextResponse.json({ jobs });
-  } catch (error: any) {
+    if (!title || !description || !budget || !category || !skills) {
+      console.error('❌ Missing required fields');
+      return NextResponse.json(
+        { error: 'Missing required fields: title, description, budget, category, skills' },
+        { status: 400 }
+      );
+    }
+
+    // Create Supabase client
+    const supabase = await createClient();
+
+    // Insert job into database
+    const jobData = {
+      client_id,
+      title: title.trim(),
+      description: description.trim(),
+      budget: parseFloat(budget),
+      category,
+      skills,
+      status: status || 'open',
+      deadline: body.deadline || null,
+      created_at: new Date().toISOString(),
+    };
+
+    console.log('💾 Inserting job into database:', jobData);
+
+    const { data, error } = await supabase
+      .from('jobs')
+      .insert(jobData)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('❌ Supabase error:', error);
+      return NextResponse.json(
+        { error: error.message, details: error },
+        { status: 500 }
+      );
+    }
+
+    console.log('✅ Job created successfully:', data);
+
     return NextResponse.json(
-      { error: error.message || 'Failed to fetch jobs' },
+      { success: true, job: data },
+      { status: 201 }
+    );
+
+  } catch (error: any) {
+    console.error('❌ Error in POST /api/jobs:', error);
+    return NextResponse.json(
+      { error: error.message || 'Internal server error' },
       { status: 500 }
     );
   }
 }
 
-// POST /api/jobs - Create a new job
-export async function POST(request: Request) {
+export async function GET(request: NextRequest) {
   try {
-    const body = await request.json();
-    
-    // Validate request body
-    const validatedData = createJobSchema.parse({
-      ...body,
-      budget: typeof body.budget === 'string' ? parseFloat(body.budget) : body.budget,
-    });
+    const supabase = await createClient();
+    const { searchParams } = new URL(request.url);
+    const status = searchParams.get('status');
+    const clientId = searchParams.get('clientId');
 
-    const job = await createJob(validatedData);
+    let query = supabase
+      .from('jobs')
+      .select('*')
+      .order('created_at', { ascending: false });
 
-    if (!job) {
-      throw new Error('Failed to create job');
+    if (status) {
+      query = query.eq('status', status);
     }
 
-    return NextResponse.json({
-      success: true,
-      job,
-    });
-  } catch (error: any) {
-    if (error instanceof ZodError) {
+    if (clientId) {
+      query = query.eq('client_id', clientId);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error('Supabase error:', error);
       return NextResponse.json(
-        { error: 'Validation failed', details: error.errors },
-        { status: 400 }
+        { error: error.message },
+        { status: 500 }
       );
     }
-    
+
+    return NextResponse.json({ jobs: data });
+
+  } catch (error: any) {
+    console.error('Error in GET /api/jobs:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to create job' },
+      { error: error.message || 'Internal server error' },
       { status: 500 }
     );
   }
