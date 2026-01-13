@@ -29,8 +29,8 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!currentUser || loading) return;
 
-    // Check if profile is incomplete and redirect to profile creation
-    if (!currentUser.profile_completed) {
+    // Check if profile is incomplete and redirect to profile creation (only once)
+    if (currentUser.profile_completed === false) {
       if (currentUser.role === 'freelancer') {
         router.push('/freelancer/createProfile');
       } else if (currentUser.role === 'client') {

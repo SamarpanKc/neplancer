@@ -12,6 +12,7 @@ interface User {
   fullName?: string;
   name?: string;
   avatarUrl?: string;
+  profile_completed?: boolean;
   stats?: {
     // Freelancer stats
     completedJobs?: number;
@@ -65,7 +66,7 @@ export const useAuth = create<AuthState>()(
       signIn: async (email: string, password: string) => {
         set({ isLoading: true });
         try {
-          const result = await auth.signIn(email, password);
+          await auth.signIn(email, password);
           const user = await auth.getCurrentUser();
           set({ 
             user: user as User, 
@@ -115,7 +116,7 @@ export const useAuth = create<AuthState>()(
             isLoading: false,
             isInitialized: true 
           });
-        } catch (error) {
+        } catch (_error) {
           set({ 
             user: null,
             isLoading: false,

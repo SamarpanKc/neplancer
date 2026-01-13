@@ -49,6 +49,9 @@ export default function FreelancerProfileSetup() {
   useEffect(() => {
     if (user && user.role !== 'freelancer') {
       router.push('/dashboard');
+    } else if (user && user.profile_completed) {
+      // If profile is already completed, redirect to dashboard
+      router.push('/dashboard');
     } else if (!user && !isLoading) {
       // Give some time for auth to initialize before redirecting
       const timer = setTimeout(() => {
@@ -136,8 +139,17 @@ export default function FreelancerProfileSetup() {
     setSubmitting(true);
     
     try {
-     await updateFreelancer(formData);
-     alert('Profile created successfully!');
+      await updateFreelancer(formData);
+      
+      // Refresh auth state to get updated profile_completed flag
+      await initialize();
+      
+      setSuccess(true);
+      
+      // Redirect to dashboard after 1.5 seconds
+      setTimeout(() => {
+        router.push('/dashboard');
+      }, 1500);
     } catch (error) {
       console.error('Error saving profile:', error);
       alert(error instanceof Error ? error.message : 'Failed to save profile. Please try again.');

@@ -1,20 +1,41 @@
 // app/api/clients/update/route.ts
 import { NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/auth';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@/lib/supabse/server';
 
 export async function PATCH(request: Request) {
   try {
-    const user = await getCurrentUser();
+    const supabase = await createClient();
     
-    if (!user) {
+    // Try to get the session first
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    
+    console.log('Session check:', { hasSession: !!session, sessionError });
+    
+    if (sessionError || !session) {
+      console.error('No session found:', sessionError);
       return NextResponse.json(
         { error: 'Not authenticated' },
         { status: 401 }
       );
     }
+    
+    const authUser = session.user;
 
-    if (user.role !== 'client') {
+    // Get user profile to check role
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', authUser.id)
+      .single();
+
+    if (profileError || !profile) {
+      return NextResponse.json(
+        { error: 'User profile not found' },
+        { status: 404 }
+      );
+    }
+
+    if (profile.role !== 'client') {
       return NextResponse.json(
         { error: 'Unauthorized - not a client' },
         { status: 403 }
@@ -34,7 +55,7 @@ export async function PATCH(request: Request) {
     const { data: existingClient } = await supabase
       .from('clients')
       .select('id')
-      .eq('profile_id', user.id)
+      .eq('profile_id', authUser.id)
       .single();
 
     if (existingClient) {
@@ -47,13 +68,19 @@ export async function PATCH(request: Request) {
           ...(website !== undefined && { website }),
           ...(company_description !== undefined && { company_description }),
         })
-        .eq('profile_id', user.id)
+        .eq('profile_id', authUser.id)
         .select()
         .single();
 
       if (error) {
         throw error;
       }
+
+      // Also update profile_completed flag
+      await supabase
+        .from('profiles')
+        .update({ profile_completed: true })
+        .eq('id', authUser.id);
 
       return NextResponse.json({ 
         success: true,
@@ -64,7 +91,7 @@ export async function PATCH(request: Request) {
       const { data, error } = await supabase
         .from('clients')
         .insert({
-          profile_id: user.id,
+          profile_id: authUser.id,
           company_name,
           location,
           website,
@@ -76,6 +103,12 @@ export async function PATCH(request: Request) {
       if (error) {
         throw error;
       }
+
+      // Also update profile_completed flag
+      await supabase
+        .from('profiles')
+        .update({ profile_completed: true })
+        .eq('id', authUser.id);
 
       return NextResponse.json({ 
         success: true,

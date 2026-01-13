@@ -3,6 +3,42 @@ import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const profileId = searchParams.get('profileId');
+
+    if (!profileId) {
+      return NextResponse.json(
+        { error: 'profileId is required' },
+        { status: 400 }
+      );
+    }
+
+    const { data, error } = await supabase
+      .from('freelancers')
+      .select('*')
+      .eq('profile_id', profileId)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        // No freelancer record found
+        return NextResponse.json({ freelancer: null });
+      }
+      throw error;
+    }
+
+    return NextResponse.json({ freelancer: data });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to fetch freelancer';
+    return NextResponse.json(
+      { error: message },
+      { status: 500 }
+    );
+  }
+}
+
 export async function PATCH(request: Request) {
   try {
     const user = await getCurrentUser();

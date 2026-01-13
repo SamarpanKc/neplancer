@@ -1,20 +1,43 @@
 // app/api/auth/me/route.ts
 import { NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/auth';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@/lib/supabse/server';
 
 export async function GET() {
   try {
-    const user = await getCurrentUser();
+    const supabase = await createClient();
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
     
-    if (!user) {
+    if (sessionError || !session) {
       return NextResponse.json(
         { error: 'Not authenticated' },
         { status: 401 }
       );
     }
 
-    return NextResponse.json({ user });
+    // Get user profile
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', session.user.id)
+      .single();
+
+    if (profileError || !profile) {
+      return NextResponse.json(
+        { error: 'Profile not found' },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({ 
+      user: {
+        id: profile.id,
+        email: profile.email,
+        role: profile.role,
+        fullName: profile.full_name,
+        avatarUrl: profile.avatar_url,
+        profile_completed: profile.profile_completed,
+      }
+    });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to get user';
     return NextResponse.json(
@@ -26,9 +49,10 @@ export async function GET() {
 
 export async function PATCH(request: Request) {
   try {
-    const user = await getCurrentUser();
+    const supabase = await createClient();
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
     
-    if (!user) {
+    if (sessionError || !session) {
       return NextResponse.json(
         { error: 'Not authenticated' },
         { status: 401 }
@@ -45,7 +69,7 @@ export async function PATCH(request: Request) {
         ...(profile_completed !== undefined && { profile_completed }),
         ...(avatar_url !== undefined && { avatar_url }),
       })
-      .eq('id', user.id)
+      .eq('id', session.user.id)
       .select()
       .single();
 

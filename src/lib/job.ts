@@ -13,12 +13,7 @@ export async function getAllOpenJobs() {
       status,
       created_at,
       deadline,
-      client_id,
-      client:users!jobs_client_id_fkey (
-        id,
-        name,
-        email
-      )
+      client_id
     `)
     .eq('status', 'open')
     .order('created_at', { ascending: false });
@@ -40,11 +35,6 @@ export async function getAllOpenJobsWithStats() {
       created_at,
       deadline,
       client_id,
-      client:users!jobs_client_id_fkey (
-        id,
-        name,
-        email
-      ),
       proposals:proposals(count)
     `)
     .eq('status', 'open')

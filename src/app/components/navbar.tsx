@@ -201,7 +201,7 @@ const Navbar = () => {
         {/* Logo */}
         <div className="flex items-center gap-2">
           <span className="text-2xl font-bold flex items-center gap-2 select-none">
-            <Link className={`${kronaOne.className} font-bold`} href={"./"}>Neplancer</Link>
+            <Link className={`${kronaOne.className} font-bold`} href="/">Neplancer</Link>
           </span>
         </div>
 

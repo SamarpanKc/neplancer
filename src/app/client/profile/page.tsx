@@ -50,6 +50,9 @@ export default function ClientProfileSetup() {
   useEffect(() => {
     if (user && user.role !== 'client') {
       router.push('/dashboard');
+    } else if (user && user.profile_completed) {
+      // If profile is already completed, redirect to dashboard
+      router.push('/dashboard');
     } else if (!user && !isLoading) {
       // Give some time for auth to initialize before redirecting
       const timer = setTimeout(() => {
@@ -113,6 +116,7 @@ export default function ClientProfileSetup() {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include', // Important: Include cookies with the request
         body: JSON.stringify({
           client_type: formData.clientType,
           company_name: formData.clientType === 'company' ? formData.companyName : null,
@@ -136,6 +140,7 @@ export default function ClientProfileSetup() {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include', // Important: Include cookies with the request
         body: JSON.stringify({
           profile_completed: true,
         }),

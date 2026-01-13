@@ -12,11 +12,14 @@ import {
   Calendar,
   ArrowRight,
   Users,
-  Award
+  Award,
+  MessageSquare
 } from 'lucide-react';
 import { getAllOpenJobs } from '@/lib/job';
 import { Job } from '@/types';
 import { getCurrentUser } from '@/lib/auth';
+import ApplyJobModal from '@/components/ApplyJobModal';
+import { toast } from 'sonner';
 
 export default function BrowseJobsPage() {
   const router = useRouter();
@@ -29,6 +32,9 @@ export default function BrowseJobsPage() {
   const [sortBy, setSortBy] = useState('newest');
   const [showFilters, setShowFilters] = useState(false);
   const [savedJobs, setSavedJobs] = useState<string[]>([]);
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [freelancerId, setFreelancerId] = useState<string | null>(null);
+  const [selectedJobForApply, setSelectedJobForApply] = useState<Job | null>(null);
 
   const categories = [
     'All Categories',
@@ -49,6 +55,18 @@ export default function BrowseJobsPage() {
         router.push('/login');
         return;
       }
+      
+      setCurrentUser(user);
+      
+      // Get freelancer ID from the database
+      const response = await fetch(`/api/freelancers?profileId=${user.id}`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.freelancer) {
+          setFreelancerId(data.freelancer.id);
+        }
+      }
+      
       // Load jobs after user verification
       await loadJobs();
       loadSavedJobs();
@@ -178,6 +196,67 @@ export default function BrowseJobsPage() {
     localStorage.setItem('savedJobs', JSON.stringify(updated));
   };
 
+  const handleApplyJob = async (proposalData: any) => {
+    try {
+      const response = await fetch('/api/proposals', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify(proposalData),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to submit proposal');
+      }
+
+      toast.success('Proposal submitted successfully!');
+      setSelectedJobForApply(null);
+      
+      // Refresh jobs to update proposal counts
+      await loadJobs();
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to submit proposal');
+      throw error;
+    }
+  };
+
+  const handleMessageClient = async (job: Job) => {
+    if (!currentUser || !job.clientId) {
+      toast.error('Unable to start conversation');
+      return;
+    }
+
+    try {
+      // Create or get existing conversation
+      const response = await fetch('/api/conversations', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          otherUserId: job.clientId,
+          jobId: job.id,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to create conversation');
+      }
+
+      // Redirect to communication page with conversation
+      router.push(`/communication?conversationId=${data.conversation.id}`);
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to start conversation');
+    }
+  };
+
   const formatBudget = (budget: number) => {
     return `₹${budget.toLocaleString()}`;
   };
@@ -228,7 +307,7 @@ export default function BrowseJobsPage() {
                   placeholder="Search jobs by title, skills, or keywords..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                  className="w-full pl-12 pr-4 py-3 border border-gray-300 outline-none rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                 />
               </div>
             </div>
@@ -430,17 +509,19 @@ export default function BrowseJobsPage() {
                   {/* Action Buttons */}
                   <div className="flex gap-3 mt-6 pt-6 border-t border-gray-200">
                     <button
-                      onClick={() => router.push(`/freelancer/my-proposals?apply=${job.id}`)}
-                      className="flex-1 px-6 py-3 bg-primary text-gray-900 rounded-lg hover:bg-primary/90 transition-colors font-semibold flex items-center justify-center gap-2"
+                      onClick={() => setSelectedJobForApply(job)}
+                      disabled={!freelancerId}
+                      className="flex-1 px-6 py-3 bg-primary text-gray-100 rounded-lg hover:bg-primary/90 transition-colors font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Apply Now
                       <ArrowRight className="h-5 w-5" />
                     </button>
                     <button
-                      onClick={() => router.push(`/client/jobs/${job.id}`)}
-                      className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                      onClick={() => handleMessageClient(job)}
+                      className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium flex items-center gap-2"
                     >
-                      View Details
+                      <MessageSquare className="h-5 w-5" />
+                      Message
                     </button>
                   </div>
                 </div>
@@ -470,6 +551,16 @@ export default function BrowseJobsPage() {
             <span className="font-semibold">{savedJobs.length} Saved</span>
           </button>
         </div>
+      )}
+
+      {/* Apply Job Modal */}
+      {selectedJobForApply && freelancerId && (
+        <ApplyJobModal
+          job={selectedJobForApply}
+          freelancerId={freelancerId}
+          onClose={() => setSelectedJobForApply(null)}
+          onSubmit={handleApplyJob}
+        />
       )}
     </div>
   );
