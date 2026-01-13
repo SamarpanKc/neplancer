@@ -1,3 +1,5 @@
+import { Url } from "next/dist/shared/lib/router/router";
+
 // User Types
 export interface User {
   id: string;
@@ -148,4 +150,12 @@ export type FreelancerProfileFormData = {
   hourlyRate: number;
   skills: string[];
   portfolioUrl?: string | null;
+};
+
+export type ClientProfileFormData = {
+  
+  company_name: string | null;
+  company_description: string | null;
+  website:string | null;
+  location: string | null;
 };

@@ -12,13 +12,16 @@ import {
   Camera,
   Globe
 } from 'lucide-react';
+import { updateClient } from '@/app/components/client/clientprofileUpdate';
+import { UploadAvatar } from '@/app/components/avatarUpload';
+
 
 interface ClientData {
   clientType: 'individual' | 'company';
-  companyName: string;
+  company_name: string;
   location: string;
   website: string;
-  companyDescription: string;
+  company_description: string;
   industry: string;
   jobTitle?: string; // For individual clients
 }
@@ -33,10 +36,10 @@ export default function ClientProfileSetup() {
   
   const [formData, setFormData] = useState<ClientData>({
     clientType: 'individual',
-    companyName: '',
+    company_name: '',
     location: '',
     website: '',
-    companyDescription: '',
+    company_description: '',
     industry: '',
     jobTitle: '',
   });
@@ -77,7 +80,7 @@ export default function ClientProfileSetup() {
         return;
       }
 
-      setAvatarFile(file);
+      UploadAvatar(file);
       const reader = new FileReader();
       reader.onloadend = () => {
         setAvatarPreview(reader.result as string);
@@ -89,7 +92,7 @@ export default function ClientProfileSetup() {
   const handleSubmit = async () => {
     // Validation based on client type
     if (formData.clientType === 'company') {
-      if (!formData.companyName || !formData.location || !formData.companyDescription) {
+      if (!formData.company_name || !formData.location || !formData.company_description) {
         alert('Please fill in all required fields (Company Name, Location, Description)');
         return;
       }
@@ -297,8 +300,8 @@ export default function ClientProfileSetup() {
               </label>
               <input
                 type="text"
-                value={formData.companyName}
-                onChange={(e) => setFormData({...formData, companyName: e.target.value})}
+                value={formData.company_name}
+                onChange={(e) => setFormData({...formData, company_name: e.target.value})}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0CF574] focus:border-transparent outline-none"
                 placeholder="Your Company Name Ltd."
                 required
@@ -386,13 +389,13 @@ export default function ClientProfileSetup() {
               </label>
               <textarea
                 rows={5}
-                value={formData.companyDescription}
-                onChange={(e) => setFormData({...formData, companyDescription: e.target.value})}
+                value={formData.company_description}
+                onChange={(e) => setFormData({...formData, company_description: e.target.value})}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0CF574] focus:border-transparent outline-none resize-none"
                 placeholder="Tell freelancers about your company, what you do, your mission, and what makes you unique..."
                 required
               />
-              <p className="text-xs text-gray-500 mt-1">{formData.companyDescription.length} characters</p>
+              <p className="text-xs text-gray-500 mt-1">{formData.company_description.length} characters</p>
             </div>
           )}
 

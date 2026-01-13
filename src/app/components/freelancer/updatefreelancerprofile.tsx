@@ -34,3 +34,4 @@ export async function updateFreelancer(formData: FreelancerProfileFormData){
 
     if(profileError) throw profileError;
 }
+
