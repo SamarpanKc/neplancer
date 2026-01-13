@@ -14,7 +14,6 @@ import {
   Users,
   Award
 } from 'lucide-react';
-import { getAllOpenJobs } from '@/lib/job';
 import { Job } from '@/types';
 import { getCurrentUser } from '@/lib/auth';
 
@@ -67,21 +66,27 @@ export default function BrowseJobsPage() {
     try {
       setLoading(true);
 
-      // Fetch all open jobs from database
-      const dbJobs = await getAllOpenJobs();
+      // Fetch jobs through API route (consistent with client jobs page)
+      const response = await fetch('/api/jobs?status=open');
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch jobs');
+      }
 
-      console.log('Raw database jobs:', dbJobs); // Debug log
+      const data = await response.json();
+      
+      console.log('API response:', data); // Debug log
 
-      // Check if dbJobs is valid
-      if (!dbJobs || !Array.isArray(dbJobs)) {
-        console.error('Invalid data received from getAllOpenJobs:', dbJobs);
+      // Check if data is valid
+      if (!data.jobs || !Array.isArray(data.jobs)) {
+        console.error('Invalid data received from API:', data);
         setJobs([]);
         setFilteredJobs([]);
         return;
       }
 
-      // Transform database format to Job type
-      const formattedJobs: Job[] = dbJobs.map(job => ({
+      // Transform API response to Job type
+      const formattedJobs: Job[] = data.jobs.map((job: any) => ({
         id: job.id,
         title: job.title,
         description: job.description,
@@ -89,11 +94,15 @@ export default function BrowseJobsPage() {
         budget: job.budget,
         skills: job.skills ?? [],
         status: job.status as 'open' | 'in_progress' | 'completed' | 'cancelled',
-        createdAt: new Date(job.created_at),
+        createdAt: new Date(job.createdAt || job.created_at),
         deadline: job.deadline ? new Date(job.deadline) : undefined,
-        clientId: job.client_id,
-        // Note: client data would need to be joined in the query
-        // For now, leaving it undefined unless you update getAllOpenJobs
+        clientId: job.clientId || job.client_id,
+        client: job.client ? {
+          id: job.client.id,
+          name: job.client.name,
+          email: job.client.email,
+          jobsPosted: job.client.jobsPosted
+        } : undefined
       }));
 
       console.log('Formatted jobs:', formattedJobs); // Debug log
@@ -370,7 +379,7 @@ export default function BrowseJobsPage() {
                       </div>
 
                       {/* Description */}
-                      <p className="text-gray-700 mb-4 line-clamp-3">
+                      <p className="text-gray-700 mb-4 line-clamp-3 break-all">
                         {job.description}
                       </p>
 
@@ -431,7 +440,7 @@ export default function BrowseJobsPage() {
                   <div className="flex gap-3 mt-6 pt-6 border-t border-gray-200">
                     <button
                       onClick={() => router.push(`/freelancer/my-proposals?apply=${job.id}`)}
-                      className="flex-1 px-6 py-3 bg-primary text-gray-900 rounded-lg hover:bg-primary/90 transition-colors font-semibold flex items-center justify-center gap-2"
+                      className="flex-1 px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors font-semibold  flex items-center justify-center gap-2"
                     >
                       Apply Now
                       <ArrowRight className="h-5 w-5" />
@@ -473,4 +482,4 @@ export default function BrowseJobsPage() {
       )}
     </div>
   );
-}
+} 
