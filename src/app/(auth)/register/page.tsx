@@ -5,6 +5,9 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Manrope } from 'next/font/google';
 import { useAuth } from '@/hooks/useAuth';
+import { validateEmail, signUpSchema } from '@/lib/validations';
+import { AlertCircle, CheckCircle2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 const manrope = Manrope({
   subsets: ["latin"],
@@ -25,6 +28,61 @@ export default function RegisterPage() {
   });
   const [error, setError] = useState('');
   const [passwordStrength, setPasswordStrength] = useState(0);
+  const [emailError, setEmailError] = useState('');
+  const [emailTouched, setEmailTouched] = useState(false);
+  const [isEmailValid, setIsEmailValid] = useState(false);
+
+  // Real-time email validation
+  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const email = e.target.value.trim();
+    setFormData({ ...formData, email });
+    
+    if (!email) {
+      setEmailError('');
+      setIsEmailValid(false);
+      return;
+    }
+
+    // Validate email format
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!emailRegex.test(email)) {
+      setEmailError('Please enter a valid email address');
+      setIsEmailValid(false);
+      return;
+    }
+
+    // Check for disposable email domains
+    const domain = email.split('@')[1]?.toLowerCase();
+    const disposableDomains = ['tempmail.com', 'throwaway.email', '10minutemail.com', 'guerrillamail.com', 'mailinator.com', 'trashmail.com', 'temp-mail.org', 'fakeinbox.com', 'yopmail.com', 'getnada.com', 'maildrop.cc', 'mintemail.com'];
+    
+    if (domain && disposableDomains.includes(domain)) {
+      setEmailError('Disposable email addresses are not allowed. Please use a real email address.');
+      setIsEmailValid(false);
+      return;
+    }
+
+    // Additional validation checks
+    if (email.includes('..')) {
+      setEmailError('Email cannot contain consecutive dots');
+      setIsEmailValid(false);
+      return;
+    }
+
+    const localPart = email.split('@')[0];
+    if (localPart && (localPart.length === 0 || localPart.length > 64)) {
+      setEmailError('Email format is invalid');
+      setIsEmailValid(false);
+      return;
+    }
+
+    // Email is valid
+    setEmailError('');
+    setIsEmailValid(true);
+  };
+
+  const handleEmailBlur = () => {
+    setEmailTouched(true);
+  };
 
   // Password strength checker
   const checkPasswordStrength = (password: string) => {
@@ -40,42 +98,72 @@ export default function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setEmailTouched(true);
 
-    // Validation
+    // Validate email first
+    if (!formData.email) {
+      setError('Email address is required');
+      setEmailError('Email address is required');
+      toast.error('Email address is required');
+      return;
+    }
+
+    if (!isEmailValid) {
+      setError('Please enter a valid email address');
+      toast.error('Please enter a valid email address');
+      return;
+    }
+
+    // Validate full name
+    if (!formData.fullName.trim() || formData.fullName.trim().length < 2) {
+      setError('Please enter your full name (at least 2 characters)');
+      toast.error('Please enter your full name');
+      return;
+    }
+
+    // Validation for passwords
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
+      toast.error('Passwords do not match');
       return;
     }
 
     if (formData.password.length < 8) {
       setError('Password must be at least 8 characters');
+      toast.error('Password must be at least 8 characters');
       return;
     }
 
+    // Freelancer-specific validation
     if (formData.role === 'freelancer' && !formData.username.trim()) {
       setError('Username is required for freelancers');
+      toast.error('Username is required for freelancers');
       return;
     }
 
     if (formData.role === 'freelancer' && formData.username.length < 3) {
       setError('Username must be at least 3 characters');
+      toast.error('Username must be at least 3 characters');
       return;
     }
 
     try {
       await signUp({
-        email: formData.email,
+        email: formData.email.toLowerCase().trim(),
         password: formData.password,
-        fullName: formData.fullName,
+        fullName: formData.fullName.trim(),
         role: formData.role,
         username: formData.role === 'freelancer' ? formData.username : undefined,
         clientType: formData.role === 'client' ? formData.clientType : undefined,
       });
 
+      toast.success('Registration successful! Welcome to NepLancer.');
       // Redirect to dashboard (it will redirect to profile creation if needed)
       router.push('/dashboard');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Registration failed');
+      const errorMessage = err instanceof Error ? err.message : 'Registration failed. Please try again.';
+      setError(errorMessage);
+      toast.error(errorMessage);
     }
   };
 
@@ -234,17 +322,50 @@ export default function RegisterPage() {
               <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-2">
                 Email address <span className="text-red-500">*</span>
               </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="appearance-none relative block w-full px-4 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0CF574] focus:border-transparent"
-                placeholder="yourmail@domain.com"
-              />
+              <div className="relative">
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  value={formData.email}
+                  onChange={handleEmailChange}
+                  onBlur={handleEmailBlur}
+                  className={`appearance-none relative block w-full px-4 py-3 pr-10 border ${
+                    emailTouched && emailError
+                      ? 'border-red-300 focus:ring-red-500'
+                      : emailTouched && isEmailValid
+                      ? 'border-green-300 focus:ring-green-500'
+                      : 'border-gray-300 focus:ring-[#0CF574]'
+                  } placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:border-transparent transition-colors`}
+                  placeholder="yourmail@domain.com"
+                />
+                {emailTouched && formData.email && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    {isEmailValid ? (
+                      <CheckCircle2 className="h-5 w-5 text-green-500" />
+                    ) : (
+                      <AlertCircle className="h-5 w-5 text-red-500" />
+                    )}
+                  </div>
+                )}
+              </div>
+              {emailTouched && emailError && (
+                <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
+                  <AlertCircle className="h-4 w-4" />
+                  {emailError}
+                </p>
+              )}
+              {emailTouched && isEmailValid && (
+                <p className="mt-2 text-sm text-green-600 flex items-center gap-1">
+                  <CheckCircle2 className="h-4 w-4" />
+                  Valid email address - ready to register!
+                </p>
+              )}
+              <p className="mt-1 text-xs text-gray-500">
+                ⚠️ Use a real email address - you'll need it to verify your account
+              </p>
             </div>
 
             <div>

@@ -4,8 +4,9 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Manrope } from 'next/font/google';
-import { Mail, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { Mail, ArrowLeft, CheckCircle2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { validateEmail, forgotPasswordSchema } from '@/lib/validations';
 
 const manrope = Manrope({
   subsets: ['latin'],
@@ -17,16 +18,90 @@ export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [emailError, setEmailError] = useState('');
+  const [emailTouched, setEmailTouched] = useState(false);
+  const [isEmailValid, setIsEmailValid] = useState(false);
+
+  // Real-time email validation
+  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const emailValue = e.target.value.trim();
+    setEmail(emailValue);
+    
+    if (!emailValue) {
+      setEmailError('');
+      setIsEmailValid(false);
+      return;
+    }
+
+    // Validate email format
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!emailRegex.test(emailValue)) {
+      setEmailError('Please enter a valid email address');
+      setIsEmailValid(false);
+      return;
+    }
+
+    // Check for disposable email domains
+    const domain = emailValue.split('@')[1]?.toLowerCase();
+    const disposableDomains = ['tempmail.com', 'throwaway.email', '10minutemail.com', 'guerrillamail.com', 'mailinator.com', 'trashmail.com', 'temp-mail.org', 'fakeinbox.com', 'yopmail.com', 'getnada.com', 'maildrop.cc', 'mintemail.com'];
+    
+    if (domain && disposableDomains.includes(domain)) {
+      setEmailError('Disposable email addresses are not allowed');
+      setIsEmailValid(false);
+      return;
+    }
+
+    // Additional validation checks
+    if (emailValue.includes('..')) {
+      setEmailError('Email cannot contain consecutive dots');
+      setIsEmailValid(false);
+      return;
+    }
+
+    // Email is valid
+    setEmailError('');
+    setIsEmailValid(true);
+  };
+
+  const handleEmailBlur = () => {
+    setEmailTouched(true);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setEmailTouched(true);
+
+    // Validate email before submission
+    if (!email) {
+      setEmailError('Email address is required');
+      toast.error('Email address is required');
+      return;
+    }
+
+    if (!isEmailValid) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
+
+    // Validate using Zod schema
+    try {
+      forgotPasswordSchema.parse({ email });
+    } catch (validationError: any) {
+      if (validationError.errors && validationError.errors.length > 0) {
+        const firstError = validationError.errors[0];
+        setEmailError(firstError.message);
+        toast.error(firstError.message);
+        return;
+      }
+    }
+
     setIsLoading(true);
 
     try {
       const response = await fetch('/api/auth/forgot-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email: email.toLowerCase().trim() }),
       });
 
       const data = await response.json();
@@ -120,7 +195,7 @@ export default function ForgotPasswordPage() {
             {/* Email Field */}
             <div>
               <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-2">
-                Email Address
+                Email Address <span className="text-red-500">*</span>
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -130,13 +205,41 @@ export default function ForgotPasswordPage() {
                   id="email"
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={handleEmailChange}
+                  onBlur={handleEmailBlur}
                   required
-                  className="w-full pl-11 pr-4 py-4 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-gray-900 transition-colors text-gray-900"
+                  className={`w-full pl-11 pr-12 py-4 border-2 ${
+                    emailTouched && emailError
+                      ? 'border-red-300 focus:border-red-500'
+                      : emailTouched && isEmailValid
+                      ? 'border-green-300 focus:border-green-500'
+                      : 'border-gray-200 focus:border-gray-900'
+                  } rounded-xl focus:outline-none transition-colors text-gray-900`}
                   placeholder="your@email.com"
                   disabled={isLoading}
                 />
+                {emailTouched && email && (
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                    {isEmailValid ? (
+                      <CheckCircle2 className="h-5 w-5 text-green-500" />
+                    ) : (
+                      <AlertCircle className="h-5 w-5 text-red-500" />
+                    )}
+                  </div>
+                )}
               </div>
+              {emailTouched && emailError && (
+                <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
+                  <AlertCircle className="h-4 w-4" />
+                  {emailError}
+                </p>
+              )}
+              {emailTouched && isEmailValid && (
+                <p className="mt-2 text-sm text-green-600 flex items-center gap-1">
+                  <CheckCircle2 className="h-4 w-4" />
+                  Valid email address
+                </p>
+              )}
             </div>
 
             {/* Submit Button */}

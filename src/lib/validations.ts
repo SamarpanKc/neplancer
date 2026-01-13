@@ -1,16 +1,91 @@
 import { z } from 'zod';
 
 // ==========================================
+// EMAIL VALIDATION HELPERS
+// ==========================================
+
+// List of common disposable email domains to block
+const DISPOSABLE_EMAIL_DOMAINS = [
+  'tempmail.com', 'throwaway.email', '10minutemail.com', 'guerrillamail.com',
+  'mailinator.com', 'trashmail.com', 'temp-mail.org', 'fakeinbox.com',
+  'yopmail.com', 'getnada.com', 'maildrop.cc', 'mintemail.com'
+];
+
+// Enhanced email validation function
+function validateEmail(email: string): boolean {
+  // Basic format check
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  if (!emailRegex.test(email)) return false;
+
+  // Extract domain
+  const domain = email.split('@')[1]?.toLowerCase();
+  if (!domain) return false;
+
+  // Check for disposable email
+  if (DISPOSABLE_EMAIL_DOMAINS.includes(domain)) return false;
+
+  // Check for valid TLD (at least 2 characters)
+  const tld = domain.split('.').pop();
+  if (!tld || tld.length < 2) return false;
+
+  // Additional checks
+  if (email.includes('..')) return false; // No consecutive dots
+  if (email.startsWith('.') || email.endsWith('.')) return false;
+  if (email.includes(' ')) return false; // No spaces
+
+  return true;
+}
+
+// Custom email refinement for Zod
+const emailValidation = z
+  .string()
+  .min(1, 'Email address is required')
+  .email('Please enter a valid email address')
+  .toLowerCase()
+  .refine(
+    (email) => {
+      const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+      return emailRegex.test(email);
+    },
+    { message: 'Please enter a properly formatted email address' }
+  )
+  .refine(
+    (email) => {
+      const domain = email.split('@')[1]?.toLowerCase();
+      return domain && !DISPOSABLE_EMAIL_DOMAINS.includes(domain);
+    },
+    { message: 'Disposable email addresses are not allowed. Please use a real email address' }
+  )
+  .refine(
+    (email) => !email.includes('..'),
+    { message: 'Email address cannot contain consecutive dots' }
+  )
+  .refine(
+    (email) => {
+      const localPart = email.split('@')[0];
+      return localPart && localPart.length > 0 && localPart.length <= 64;
+    },
+    { message: 'Email address format is invalid' }
+  )
+  .refine(
+    (email) => {
+      const domain = email.split('@')[1];
+      return domain && domain.length <= 255;
+    },
+    { message: 'Email domain is too long' }
+  );
+
+// ==========================================
 // AUTH VALIDATIONS
 // ==========================================
 
 export const signInSchema = z.object({
-  email: z.string().email('Invalid email address'),
+  email: emailValidation,
   password: z.string().min(8, 'Password must be at least 8 characters'),
 });
 
 export const signUpSchema = z.object({
-  email: z.string().email('Invalid email address'),
+  email: emailValidation,
   password: z.string().min(8, 'Password must be at least 8 characters'),
   fullName: z.string().min(2, 'Full name must be at least 2 characters').max(100, 'Full name is too long'),
   role: z.enum(['client', 'freelancer'], {
@@ -30,8 +105,11 @@ export const signUpSchema = z.object({
 });
 
 export const forgotPasswordSchema = z.object({
-  email: z.string().email('Invalid email address'),
+  email: emailValidation,
 });
+
+// Export validation function for client-side use
+export { validateEmail };
 
 export const resetPasswordSchema = z.object({
   password: z.string().min(8, 'Password must be at least 8 characters'),
