@@ -1,29 +1,27 @@
 'use client';
 
 import {supabase} from '@/lib/supabase'
-import type {FreelancerProfileFormData} from '@/types'
+import type {ClientProfileFormData} from '@/types'
 
-export async function updateFreelancer(formData: FreelancerProfileFormData){
+export async function updateClient(formData:ClientProfileFormData){
     
     const{data:{user}} = await supabase.auth.getUser();
-
-    if(!user) throw new Error('Not Logged in');
+    
+    if(!user) throw new Error('Not Logged in'); 
 
     const {error} = await supabase
-    .from('freelancers')
+    .from('clients')
     .update({
-        username:formData.username,
-        title:formData.title,
-        bio:formData.bio,
-        hourly_rate:formData.hourlyRate,
-        skills:formData.skills,
-        portfolio_url:formData.portfolioUrl,
-
+        
+        company_name:formData.company_name,
+        company_description:formData.company_description,
+        website:formData.website,
+        location:formData.location,
     })
     .eq('profile_id',user.id);
 
     if(error) throw error;
-    
+
     const{error:IndicationError} = await supabase
     .from('profiles')
     .update({
@@ -33,4 +31,3 @@ export async function updateFreelancer(formData: FreelancerProfileFormData){
     
     if(IndicationError) throw IndicationError;
 }
-

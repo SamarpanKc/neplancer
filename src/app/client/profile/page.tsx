@@ -12,13 +12,16 @@ import {
   Camera,
   Globe
 } from 'lucide-react';
+import { updateClient } from '@/app/components/client/clientprofileUpdate';
+import { UploadAvatar } from '@/app/components/avatarUpload';
+
 
 interface ClientData {
   clientType: 'individual' | 'company';
-  companyName: string;
+  company_name: string;
   location: string;
   website: string;
-  companyDescription: string;
+  company_description: string;
   industry: string;
   jobTitle?: string; // For individual clients
 }
@@ -33,10 +36,10 @@ export default function ClientProfileSetup() {
   
   const [formData, setFormData] = useState<ClientData>({
     clientType: 'individual',
-    companyName: '',
+    company_name: '',
     location: '',
     website: '',
-    companyDescription: '',
+    company_description: '',
     industry: '',
     jobTitle: '',
   });
@@ -74,7 +77,7 @@ export default function ClientProfileSetup() {
         return;
       }
 
-      setAvatarFile(file);
+      UploadAvatar(file);
       const reader = new FileReader();
       reader.onloadend = () => {
         setAvatarPreview(reader.result as string);
@@ -86,7 +89,7 @@ export default function ClientProfileSetup() {
   const handleSubmit = async () => {
     // Validation based on client type
     if (formData.clientType === 'company') {
-      if (!formData.companyName || !formData.location || !formData.companyDescription) {
+      if (!formData.company_name || !formData.location || !formData.company_description) {
         alert('Please fill in all required fields (Company Name, Location, Description)');
         return;
       }
@@ -107,52 +110,7 @@ export default function ClientProfileSetup() {
     setLoading(true);
     
     try {
-      // Update client profile using the new endpoint
-      const clientResponse = await fetch(`/api/clients/update`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          client_type: formData.clientType,
-          company_name: formData.clientType === 'company' ? formData.companyName : null,
-          location: formData.location,
-          website: formData.website || null,
-          company_description: formData.clientType === 'company' ? formData.companyDescription : null,
-          industry: formData.industry || null,
-          job_title: formData.clientType === 'individual' ? formData.jobTitle : null,
-          // TODO: Add logo upload functionality
-        }),
-      });
-
-      if (!clientResponse.ok) {
-        const errorData = await clientResponse.json();
-        throw new Error(errorData.error || 'Failed to update client profile');
-      }
-
-      // Update profile_completed flag
-      const profileResponse = await fetch('/api/auth/me', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          profile_completed: true,
-        }),
-      });
-
-      if (!profileResponse.ok) {
-        throw new Error('Failed to update profile status');
-      }
-
-      // Update local auth state
-      await initialize();
-      
-      setSuccess(true);
-      
-      setTimeout(() => {
-        router.push('/dashboard');
-      }, 1500);
+      await updateClient(formData);
     } catch (error) {
       console.error('Error saving profile:', error);
       alert(error instanceof Error ? error.message : 'Failed to save profile. Please try again.');
@@ -292,8 +250,8 @@ export default function ClientProfileSetup() {
               </label>
               <input
                 type="text"
-                value={formData.companyName}
-                onChange={(e) => setFormData({...formData, companyName: e.target.value})}
+                value={formData.company_name}
+                onChange={(e) => setFormData({...formData, company_name: e.target.value})}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0CF574] focus:border-transparent outline-none"
                 placeholder="Your Company Name Ltd."
                 required
@@ -381,13 +339,13 @@ export default function ClientProfileSetup() {
               </label>
               <textarea
                 rows={5}
-                value={formData.companyDescription}
-                onChange={(e) => setFormData({...formData, companyDescription: e.target.value})}
+                value={formData.company_description}
+                onChange={(e) => setFormData({...formData, company_description: e.target.value})}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0CF574] focus:border-transparent outline-none resize-none"
                 placeholder="Tell freelancers about your company, what you do, your mission, and what makes you unique..."
                 required
               />
-              <p className="text-xs text-gray-500 mt-1">{formData.companyDescription.length} characters</p>
+              <p className="text-xs text-gray-500 mt-1">{formData.company_description.length} characters</p>
             </div>
           )}
 
