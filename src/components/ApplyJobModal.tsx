@@ -39,6 +39,11 @@ export default function ApplyJobModal({
       return;
     }
 
+    if (coverLetter.length < 100) {
+      setError('Cover letter must be at least 100 characters');
+      return;
+    }
+
     if (!proposedBudget || parseFloat(proposedBudget) <= 0) {
       setError('Please enter a valid budget');
       return;

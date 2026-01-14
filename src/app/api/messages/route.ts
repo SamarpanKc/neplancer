@@ -18,9 +18,17 @@ export async function GET(request: NextRequest) {
     // Get current user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     
-    if (authError || !user) {
+    if (authError) {
+      console.error('Auth error in GET /api/messages:', authError);
       return NextResponse.json(
-        { error: 'Not authenticated' },
+        { error: 'Authentication error: ' + authError.message },
+        { status: 401 }
+      );
+    }
+
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Not authenticated. Please log in again.' },
         { status: 401 }
       );
     }
@@ -89,9 +97,17 @@ export async function POST(request: NextRequest) {
     // Get current user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     
-    if (authError || !user) {
+    if (authError) {
+      console.error('Auth error in POST /api/messages:', authError);
       return NextResponse.json(
-        { error: 'Not authenticated' },
+        { error: 'Authentication error: ' + authError.message },
+        { status: 401 }
+      );
+    }
+
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Not authenticated. Please log in again.' },
         { status: 401 }
       );
     }
@@ -158,9 +174,17 @@ export async function PATCH(request: NextRequest) {
     // Get current user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     
-    if (authError || !user) {
+    if (authError) {
+      console.error('Auth error in PATCH /api/messages:', authError);
       return NextResponse.json(
-        { error: 'Not authenticated' },
+        { error: 'Authentication error: ' + authError.message },
+        { status: 401 }
+      );
+    }
+
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Not authenticated. Please log in again.' },
         { status: 401 }
       );
     }

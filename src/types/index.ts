@@ -80,7 +80,21 @@ export interface Proposal {
   proposedBudget: number;
   estimatedDuration: string;
   status: 'pending' | 'accepted' | 'rejected';
+  rejection_reason?: string;
   createdAt: Date;
+  updatedAt?: Date;
+}
+
+// Notification Types
+export interface Notification {
+  id: string;
+  user_id: string;
+  type: 'new_proposal' | 'proposal_accepted' | 'proposal_rejected' | 'new_message' | 'job_update' | 'payment' | 'system';
+  title: string;
+  message: string;
+  link?: string;
+  read: boolean;
+  created_at: string;
 }
 
 // Message Types

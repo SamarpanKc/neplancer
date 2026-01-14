@@ -1,0 +1,277 @@
+import { NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabse/server';
+
+// GET /api/contracts/[id] - Get single contract
+export async function GET(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const supabase = await createClient();
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    
+    if (userError || !user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    const { id } = params;
+
+    const { data: contract, error } = await supabase
+      .from('contracts')
+      .select(`
+        *,
+        jobs:job_id (
+          id,
+          title,
+          description,
+          category,
+          skills
+        ),
+        client:client_id (
+          id,
+          full_name,
+          avatar_url,
+          email
+        ),
+        freelancer:freelancer_id (
+          id,
+          full_name,
+          avatar_url,
+          email
+        ),
+        proposal:proposal_id (
+          id,
+          cover_letter,
+          proposed_budget,
+          estimated_duration
+        )
+      `)
+      .eq('id', id)
+      .single();
+
+    if (error || !contract) {
+      return NextResponse.json(
+        { error: 'Contract not found' },
+        { status: 404 }
+      );
+    }
+
+    // Verify user is part of the contract
+    if (contract.client_id !== user.id && contract.freelancer_id !== user.id) {
+      return NextResponse.json(
+        { error: 'Unauthorized to view this contract' },
+        { status: 403 }
+      );
+    }
+
+    // Get milestones if any
+    const { data: milestones } = await supabase
+      .from('contract_milestones')
+      .select('*')
+      .eq('contract_id', id)
+      .order('created_at', { ascending: true });
+
+    return NextResponse.json({ 
+      contract: {
+        ...contract,
+        milestones: milestones || []
+      }
+    });
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Failed to fetch contract';
+    console.error('Error fetching contract:', error);
+    return NextResponse.json(
+      { error: errorMessage },
+      { status: 500 }
+    );
+  }
+}
+
+// PATCH /api/contracts/[id] - Update contract (sign, update status)
+export async function PATCH(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const supabase = await createClient();
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    
+    if (userError || !user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    const { id } = params;
+    const body = await request.json();
+    const { action, signature, status, cancellation_reason } = body;
+
+    // Get the contract
+    const { data: contract, error: fetchError } = await supabase
+      .from('contracts')
+      .select('*, client:client_id(full_name), freelancer:freelancer_id(full_name)')
+      .eq('id', id)
+      .single();
+
+    if (fetchError || !contract) {
+      return NextResponse.json(
+        { error: 'Contract not found' },
+        { status: 404 }
+      );
+    }
+
+    // Verify user is part of the contract
+    if (contract.client_id !== user.id && contract.freelancer_id !== user.id) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 403 }
+      );
+    }
+
+    const updateData: Record<string, unknown> = {
+      updated_at: new Date().toISOString(),
+    };
+
+    // Handle signing
+    if (action === 'sign') {
+      if (user.id === contract.client_id) {
+        updateData.client_signed_at = new Date().toISOString();
+        updateData.client_signature = signature || `Signed by ${contract.client.full_name}`;
+      } else if (user.id === contract.freelancer_id) {
+        updateData.freelancer_signed_at = new Date().toISOString();
+        updateData.freelancer_signature = signature || `Signed by ${contract.freelancer.full_name}`;
+        
+        // If both parties have signed, activate the contract
+        if (contract.client_signed_at) {
+          updateData.status = 'active';
+        }
+      }
+
+      const { data: updatedContract, error: updateError } = await supabase
+        .from('contracts')
+        .update(updateData)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (updateError) {
+        console.error('Error signing contract:', updateError);
+        return NextResponse.json(
+          { error: updateError.message },
+          { status: 500 }
+        );
+      }
+
+      // Send notification to the other party
+      const recipientId = user.id === contract.client_id ? contract.freelancer_id : contract.client_id;
+      const signerName = user.id === contract.client_id ? contract.client.full_name : contract.freelancer.full_name;
+      
+      // If contract is now active, notify both parties
+      if (updatedContract.status === 'active') {
+        // Notify client
+        await supabase.from('notifications').insert({
+          user_id: contract.client_id,
+          type: 'contract_active',
+          title: 'Contract Activated! ✅',
+          message: `The contract "${contract.title}" is now active. Work can begin!`,
+          link: `/contracts/${id}`,
+          read: false,
+        });
+
+        // Notify freelancer
+        await supabase.from('notifications').insert({
+          user_id: contract.freelancer_id,
+          type: 'contract_active',
+          title: 'Contract Activated! ✅',
+          message: `The contract "${contract.title}" is now active. You can start working!`,
+          link: `/contracts/${id}`,
+          read: false,
+        });
+      } else {
+        // Just notify about the signature
+        await supabase.from('notifications').insert({
+          user_id: recipientId,
+          type: 'contract_signed',
+          title: 'Contract Signed 📝',
+          message: `${signerName} has signed the contract "${contract.title}". Please sign to activate.`,
+          link: `/contracts/${id}`,
+          read: false,
+        });
+      }
+
+      return NextResponse.json({ 
+        success: true, 
+        contract: updatedContract,
+        message: updatedContract.status === 'active' 
+          ? 'Contract activated! Work can begin.' 
+          : 'Contract signed successfully!'
+      });
+    }
+
+    // Handle status updates
+    if (status) {
+      updateData.status = status;
+      
+      if (status === 'completed') {
+        updateData.completed_at = new Date().toISOString();
+      } else if (status === 'cancelled') {
+        updateData.cancelled_at = new Date().toISOString();
+        updateData.cancellation_reason = cancellation_reason || 'Contract cancelled';
+      }
+
+      const { data: updatedContract, error: updateError } = await supabase
+        .from('contracts')
+        .update(updateData)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (updateError) {
+        console.error('Error updating contract:', updateError);
+        return NextResponse.json(
+          { error: updateError.message },
+          { status: 500 }
+        );
+      }
+
+      // Notify both parties
+      const recipientId = user.id === contract.client_id ? contract.freelancer_id : contract.client_id;
+      const notificationMessage = status === 'completed'
+        ? `The contract "${contract.title}" has been marked as completed.`
+        : status === 'cancelled'
+        ? `The contract "${contract.title}" has been cancelled.`
+        : `The contract "${contract.title}" status has been updated.`;
+
+      await supabase.from('notifications').insert({
+        user_id: recipientId,
+        type: `contract_${status}`,
+        title: `Contract ${status.charAt(0).toUpperCase() + status.slice(1)}`,
+        message: notificationMessage,
+        link: `/contracts/${id}`,
+        read: false,
+      });
+
+      return NextResponse.json({ 
+        success: true, 
+        contract: updatedContract,
+        message: `Contract ${status} successfully!`
+      });
+    }
+
+    return NextResponse.json(
+      { error: 'Invalid action' },
+      { status: 400 }
+    );
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Failed to update contract';
+    console.error('Error updating contract:', error);
+    return NextResponse.json(
+      { error: errorMessage },
+      { status: 500 }
+    );
+  }
+}

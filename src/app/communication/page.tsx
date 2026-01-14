@@ -1,96 +1,275 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { 
-  Send, 
-  Paperclip, 
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import {  
   Search, 
-  MoreVertical,
   ArrowLeft,
-  Check,
-  CheckCheck,
-  Phone,
-  Video,
-  Info,
-  Image as ImageIcon,
-  Smile
+  MessageSquare
 } from 'lucide-react';
-import { getCurrentUser } from '@/lib/auth';
-import { demoApi } from '@/lib/demoApi';
-import { Conversation, Message, User } from '@/types';
+import { useAuth } from '@/hooks/useAuth';
+import ChatBox from '@/components/ChatBox';
+import Image from 'next/image';
+import { supabase } from '@/lib/supabase';
+import { toast } from 'sonner';
+
+interface Conversation {
+  id: string;
+  participant_1_id: string;
+  participant_2_id: string;
+  job_id: string | null;
+  updated_at: string;
+  otherUser: {
+    id: string;
+    full_name: string;
+    avatar_url: string;
+    role: string;
+  };
+  lastMessage: {
+    id: string;
+    content: string;
+    created_at: string;
+    read: boolean;
+    sender_id: string;
+  } | null;
+  unreadCount?: number;
+}
 
 export default function CommunicationPage() {
-  const router = useRouter();
   const searchParams = useSearchParams();
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { user } = useAuth();
   
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [newMessage, setNewMessage] = useState('');
+  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [showProjectInquiry, setShowProjectInquiry] = useState(false);
-  const [otherUser, setOtherUser] = useState<User | null>(null);
-  
-  // Project inquiry form state
-  const [projectTitle, setProjectTitle] = useState('');
-  const [projectCategory, setProjectCategory] = useState('');
-  const [projectBudget, setProjectBudget] = useState('');
-  const [projectDeadline, setProjectDeadline] = useState('');
-  const [projectDescription, setProjectDescription] = useState('');
+  const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
 
+  // Update document title with unread count
   useEffect(() => {
-    async function initializeUser() {
-      const user = await getCurrentUser();
-      if (!user) {
-        router.push('/login');
-        return;
-      }
-      setCurrentUser(user);
+    const totalUnread = conversations.reduce((sum, conv) => sum + (conv.unreadCount || 0), 0);
+    if (totalUnread > 0) {
+      document.title = `(${totalUnread}) Messages - Neplancer`;
+    } else {
+      document.title = 'Messages - Neplancer';
+    }
+  }, [conversations]);
+
+  // Initial load
+  useEffect(() => {
+    if (!user) {
+      return;
     }
     
-    initializeUser();
+    loadConversations();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [user]);
 
+  // Handle URL param for conversation selection
   useEffect(() => {
-    if (currentUser) {
-      loadConversations();
-      
-      // Check if we need to start a new conversation with a freelancer
-      const freelancerId = searchParams.get('freelancer');
-      if (freelancerId) {
-        handleStartConversation(freelancerId);
-      }
+    const paramId = searchParams.get('conversationId');
+    if (paramId) {
+      setSelectedConversationId(paramId);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUser, searchParams]);
+  }, [searchParams]);
 
+  // Real-time subscription
   useEffect(() => {
-    if (selectedConversation) {
-      loadMessages(selectedConversation.id);
-      loadOtherUser();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedConversation]);
+    if (!user) return;
 
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    // Track online presence
+    const presenceChannel = supabase.channel('online_users', {
+      config: {
+        presence: {
+          key: user.id,
+        },
+      },
+    });
+
+    presenceChannel
+      .on('presence', { event: 'sync' }, () => {
+        const state = presenceChannel.presenceState();
+        const onlineUserIds = new Set(
+          Object.keys(state)
+            .map((key) => (state[key][0] as { user_id?: string })?.user_id)
+            .filter((id): id is string => Boolean(id))
+        );
+        setOnlineUsers(onlineUserIds);
+      })
+      .on('presence', { event: 'join' }, ({ newPresences }) => {
+        const userId = (newPresences[0] as { user_id?: string })?.user_id;
+        if (userId) {
+          setOnlineUsers(prev => new Set([...prev, userId]));
+        }
+      })
+      .on('presence', { event: 'leave' }, ({ leftPresences }) => {
+        const userId = (leftPresences[0] as { user_id?: string })?.user_id;
+        if (userId) {
+          setOnlineUsers(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(userId);
+            return newSet;
+          });
+        }
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          await presenceChannel.track({
+            user_id: user.id,
+            online_at: new Date().toISOString(),
+          });
+        }
+      });
+
+    // Subscribe to new messages and conversations
+    const channel = supabase
+      .channel('communication_list_updates')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+        },
+        async (payload) => {
+          const newMsg = payload.new as {
+            id: string;
+            conversation_id: string;
+            sender_id: string;
+            content: string;
+            created_at: string;
+            read: boolean;
+          };
+          
+          // Don't show notification for own messages
+          const isOwnMessage = newMsg.sender_id === user.id;
+          
+          setConversations(prev => {
+            // Check if we have this conversation
+            const existingIndex = prev.findIndex(c => c.id === newMsg.conversation_id);
+            
+            if (existingIndex >= 0) {
+              // Move to top and update last message
+              const conversation = prev[existingIndex];
+              const isCurrentConversation = conversation.id === selectedConversationId;
+              
+              // Show notification for new messages from others
+              if (!isOwnMessage && !isCurrentConversation) {
+                toast.info(`New message from ${conversation.otherUser?.full_name}`, {
+                  description: newMsg.content.substring(0, 50) + (newMsg.content.length > 50 ? '...' : ''),
+                  duration: 4000,
+                });
+                
+                // Play notification sound (optional)
+                if (typeof Audio !== 'undefined') {
+                  try {
+                    const audio = new Audio('/notification.mp3');
+                    audio.volume = 0.3;
+                    audio.play().catch(() => {/* Ignore errors */});
+                  } catch {
+                    // Ignore audio errors
+                  }
+                }
+              }
+              
+              const updatedConversation = {
+                ...conversation,
+                lastMessage: {
+                  id: newMsg.id,
+                  content: newMsg.content,
+                  created_at: newMsg.created_at,
+                  read: newMsg.read,
+                  sender_id: newMsg.sender_id,
+                },
+                updated_at: newMsg.created_at,
+                // Increment unread count only if not own message and not viewing this conversation
+                unreadCount: (!isOwnMessage && !isCurrentConversation) 
+                  ? (conversation.unreadCount || 0) + 1 
+                  : (isCurrentConversation ? 0 : conversation.unreadCount || 0),
+              };
+              
+              const newConversations = [...prev];
+              newConversations.splice(existingIndex, 1);
+              return [updatedConversation, ...newConversations];
+            } else {
+              // New conversation - reload to get details
+              if (!isOwnMessage) {
+                toast.info('New conversation started', {
+                  description: newMsg.content.substring(0, 50) + (newMsg.content.length > 50 ? '...' : ''),
+                  duration: 4000,
+                });
+              }
+              loadConversations();
+              return prev;
+            }
+          });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'messages',
+        },
+        (payload) => {
+          // Handle message read status updates
+          const updatedMsg = payload.new as { id: string; conversation_id: string; read: boolean };
+          setConversations(prev => 
+            prev.map(conv => {
+              if (conv.id === updatedMsg.conversation_id && 
+                  conv.lastMessage?.id === updatedMsg.id && 
+                  conv.lastMessage) {
+                return {
+                  ...conv,
+                  lastMessage: {
+                    id: conv.lastMessage.id,
+                    content: conv.lastMessage.content,
+                    created_at: conv.lastMessage.created_at,
+                    sender_id: conv.lastMessage.sender_id,
+                    read: updatedMsg.read,
+                  },
+                };
+              }
+              return conv;
+            })
+          );
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'conversations',
+        },
+        () => {
+          // New conversation created - reload
+          loadConversations();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      presenceChannel.unsubscribe();
+      supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, selectedConversationId]);
 
   const loadConversations = async () => {
-    if (!currentUser) return;
-    
     try {
       setLoading(true);
-      const convos = await demoApi.getConversationsByUserId(currentUser.id);
-      setConversations(convos);
+      const response = await fetch('/api/conversations');
       
-      if (convos.length > 0 && !selectedConversation) {
-        setSelectedConversation(convos[0]);
+      if (response.ok) {
+        const data = await response.json();
+        setConversations(data.conversations || []);
+        
+        const paramId = searchParams.get('conversationId');
+        if (!paramId && data.conversations?.length > 0 && !selectedConversationId) {
+           // Optional: Auto-select first conversation
+        }
       }
     } catch (error) {
       console.error('Error loading conversations:', error);
@@ -99,129 +278,21 @@ export default function CommunicationPage() {
     }
   };
 
-  const loadMessages = async (conversationId: string) => {
-    try {
-      const msgs = await demoApi.getMessagesByConversationId(conversationId);
-      setMessages(msgs);
-      
-      // Mark messages as read
-      msgs.forEach(msg => {
-        if (msg.senderId !== currentUser?.id && !msg.read) {
-          demoApi.markMessageAsRead(msg.id);
-        }
-      });
-    } catch (error) {
-      console.error('Error loading messages:', error);
-    }
-  };
+  const selectedConversation = conversations.find(c => c.id === selectedConversationId);
 
-  const loadOtherUser = async () => {
-    if (!selectedConversation || !currentUser) return;
-    
-    const otherUserId = selectedConversation.participants.find(id => id !== currentUser.id);
-    if (otherUserId) {
-      const user = await demoApi.getUserById(otherUserId);
-      setOtherUser(user);
-    }
-  };
+  const filteredConversations = conversations.filter(c => {
+    if (!searchQuery) return true;
+    return c.otherUser?.full_name?.toLowerCase().includes(searchQuery.toLowerCase());
+  });
 
-  const handleStartConversation = async (freelancerId: string) => {
-    if (!currentUser) return;
-    
-    // Check if conversation already exists
-    const existingConvo = conversations.find(c => 
-      c.participants.includes(freelancerId) && c.participants.includes(currentUser.id)
-    );
-    
-    if (existingConvo) {
-      setSelectedConversation(existingConvo);
-      setShowProjectInquiry(false);
-    } else {
-      // Show project inquiry form for new conversations
-      const freelancer = await demoApi.getUserById(freelancerId);
-      setOtherUser(freelancer);
-      setShowProjectInquiry(true);
-    }
-  };
-
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!newMessage.trim() || !currentUser || !selectedConversation) return;
-    
-    try {
-      const message = await demoApi.createMessage({
-        conversationId: selectedConversation.id,
-        senderId: currentUser.id,
-        content: newMessage.trim(),
-        read: false,
-      });
-      
-      setMessages([...messages, message]);
-      setNewMessage('');
-    } catch (error) {
-      console.error('Error sending message:', error);
-    }
-  };
-
-  const handleSubmitProjectInquiry = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!currentUser || !otherUser) return;
-    
-    try {
-      // Create new conversation
-      const conversation = await demoApi.createConversation([currentUser.id, otherUser.id]);
-      
-      // Send project inquiry as first message
-      const inquiryMessage = `
-📋 **New Project Inquiry**
-
-**Project**: ${projectTitle}
-**Category**: ${projectCategory}
-**Budget**: ₹${projectBudget}
-**Deadline**: ${projectDeadline}
-
-**Description**:
-${projectDescription}
-
-I'm interested in discussing this project with you. Let me know if you're available!
-      `.trim();
-      
-      await demoApi.createMessage({
-        conversationId: conversation.id,
-        senderId: currentUser.id,
-        content: inquiryMessage,
-        read: false,
-      });
-      
-      // Update state
-      setConversations([conversation, ...conversations]);
-      setSelectedConversation(conversation);
-      setShowProjectInquiry(false);
-      
-      // Clear form
-      setProjectTitle('');
-      setProjectCategory('');
-      setProjectBudget('');
-      setProjectDeadline('');
-      setProjectDescription('');
-    } catch (error) {
-      console.error('Error submitting project inquiry:', error);
-    }
-  };
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  const formatTime = (date: Date) => {
+  const formatTime = (dateString: string) => {
+    if (!dateString) return '';
     const now = new Date();
-    const messageDate = new Date(date);
-    const diffInHours = (now.getTime() - messageDate.getTime()) / (1000 * 60 * 60);
+    const date = new Date(dateString);
+    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
     
     if (diffInHours < 24) {
-      return messageDate.toLocaleTimeString('en-US', { 
+      return date.toLocaleTimeString('en-US', { 
         hour: 'numeric', 
         minute: '2-digit',
         hour12: true 
@@ -229,20 +300,14 @@ I'm interested in discussing this project with you. Let me know if you're availa
     } else if (diffInHours < 48) {
       return 'Yesterday';
     } else {
-      return messageDate.toLocaleDateString('en-US', { 
+      return date.toLocaleDateString('en-US', { 
         month: 'short', 
         day: 'numeric' 
       });
     }
   };
 
-  const filteredConversations = conversations.filter(() => {
-    if (!searchQuery) return true;
-    // Search by participant name (simplified for demo)
-    return true;
-  });
-
-  if (loading) {
+  if (loading && conversations.length === 0) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -253,395 +318,153 @@ I'm interested in discussing this project with you. Let me know if you're availa
     );
   }
 
-  // Project Inquiry Form Modal
-  if (showProjectInquiry && otherUser) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="bg-white border-b">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-            <button
-              onClick={() => {
-                setShowProjectInquiry(false);
-                router.back();
-              }}
-              className="flex items-center text-gray-600 hover:text-gray-900 transition-colors"
-            >
-              <ArrowLeft className="h-5 w-5 mr-2" />
-              Back
-            </button>
-          </div>
-        </div>
-
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
-            <div className="flex items-center gap-4 mb-6 pb-6 border-b">
-              <img
-                src={otherUser.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${otherUser.name}`}
-                alt={otherUser.name}
-                className="w-16 h-16 rounded-full"
-              />
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">Contact {otherUser.name}</h1>
-                <p className="text-gray-600">Start a conversation by sharing your project details</p>
-              </div>
-            </div>
-
-            <form onSubmit={handleSubmitProjectInquiry} className="space-y-6">
-              <div>
-                <label className="block text-sm font-semibold text-gray-900 mb-2">
-                  Project Title *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={projectTitle}
-                  onChange={(e) => setProjectTitle(e.target.value)}
-                  placeholder="e.g., E-commerce Website Development"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-900 mb-2">
-                    Category *
-                  </label>
-                  <select
-                    required
-                    value={projectCategory}
-                    onChange={(e) => setProjectCategory(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                  >
-                    <option value="">Select category</option>
-                    <option value="Web Development">Web Development</option>
-                    <option value="Mobile Apps">Mobile Apps</option>
-                    <option value="Design">Design</option>
-                    <option value="Content Writing">Content Writing</option>
-                    <option value="Digital Marketing">Digital Marketing</option>
-                    <option value="Data Science">Data Science</option>
-                    <option value="Video Editing">Video Editing</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-900 mb-2">
-                    Budget Range (NPR) *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={projectBudget}
-                    onChange={(e) => setProjectBudget(e.target.value)}
-                    placeholder="e.g., 50,000 - 100,000"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-900 mb-2">
-                  Expected Deadline *
-                </label>
-                <input
-                  type="date"
-                  required
-                  value={projectDeadline}
-                  onChange={(e) => setProjectDeadline(e.target.value)}
-                  min={new Date().toISOString().split('T')[0]}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-900 mb-2">
-                  Project Description *
-                </label>
-                <textarea
-                  required
-                  value={projectDescription}
-                  onChange={(e) => setProjectDescription(e.target.value)}
-                  rows={6}
-                  placeholder="Provide detailed information about your project requirements, goals, and any specific features you need..."
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
-                />
-                <p className="mt-2 text-sm text-gray-500">
-                  {projectDescription.length} / 500 characters
-                </p>
-              </div>
-
-              <div className="flex gap-4 pt-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowProjectInquiry(false);
-                    router.back();
-                  }}
-                  className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 px-6 py-3 bg-primary text-gray-900 rounded-lg hover:bg-primary/90 transition-colors font-semibold"
-                >
-                  Send Inquiry
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="h-screen bg-gray-100 flex flex-col">
-      {/* Header */}
-      <div className="bg-white border-b px-4 py-3">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => router.push('/dashboard')}
-              className="lg:hidden"
-            >
-              <ArrowLeft className="h-6 w-6 text-gray-600" />
-            </button>
-            <h1 className="text-xl font-bold text-gray-900">Messages</h1>
-          </div>
-        </div>
-      </div>
-
-      <div className="flex-1 flex overflow-hidden max-w-7xl mx-auto w-full">
-        {/* Conversations List */}
-        <div className={`w-full lg:w-96 bg-white border-r flex flex-col ${selectedConversation ? 'hidden lg:flex' : 'flex'}`}>
-          {/* Search */}
-          <div className="p-4 border-b">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search conversations..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-              />
-            </div>
-          </div>
-
-          {/* Conversation List */}
-          <div className="flex-1 overflow-y-auto">
-            {filteredConversations.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full p-8 text-center">
-                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                  <Send className="h-8 w-8 text-gray-400" />
-                </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">No conversations yet</h3>
-                <p className="text-gray-600 text-sm">
-                  Start a conversation by contacting a freelancer
-                </p>
-              </div>
-            ) : (
-              filteredConversations.map((conversation) => {
-                const lastMessage = conversation.lastMessage;
-                const isSelected = selectedConversation?.id === conversation.id;
-                
-                return (
-                  <button
-                    key={conversation.id}
-                    onClick={() => setSelectedConversation(conversation)}
-                    className={`w-full p-4 flex items-start gap-3 hover:bg-gray-50 transition-colors border-b ${
-                      isSelected ? 'bg-primary/5 border-l-4 border-l-primary' : ''
-                    }`}
-                  >
-                    <img
-                      src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${conversation.id}`}
-                      alt="User"
-                      className="w-12 h-12 rounded-full"
-                    />
-                    <div className="flex-1 text-left">
-                      <div className="flex items-center justify-between mb-1">
-                        <h3 className="font-semibold text-gray-900">Conversation</h3>
-                        <span className="text-xs text-gray-500">
-                          {lastMessage ? formatTime(lastMessage.createdAt) : ''}
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-600 line-clamp-1">
-                        {lastMessage?.content || 'No messages yet'}
-                      </p>
-                    </div>
-                    {lastMessage && !lastMessage.read && lastMessage.senderId !== currentUser?.id && (
-                      <div className="w-2 h-2 bg-primary rounded-full mt-2"></div>
-                    )}
-                  </button>
-                );
-              })
-            )}
+    <div className="h-[calc(100vh-64px)] bg-gray-100 flex overflow-hidden">
+      {/* Sidebar - Conversation List */}
+      <div className={`${
+        selectedConversationId ? 'hidden md:flex' : 'flex'
+      } w-full md:w-96 flex-col bg-white border-r border-gray-200`}>
+        {/* Search Header */}
+        <div className="p-4 border-b border-gray-200">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-5 w-5" />
+            <input
+              type="text"
+              placeholder="Search messages..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+            />
           </div>
         </div>
 
-        {/* Chat Area */}
-        {selectedConversation ? (
-          <div className={`flex-1 flex flex-col bg-white ${selectedConversation ? 'flex' : 'hidden lg:flex'}`}>
-            {/* Chat Header */}
-            <div className="px-6 py-4 border-b flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => setSelectedConversation(null)}
-                  className="lg:hidden"
-                >
-                  <ArrowLeft className="h-6 w-6 text-gray-600" />
-                </button>
-                {otherUser && (
-                  <>
-                    <img
-                      src={otherUser.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${otherUser.name}`}
-                      alt={otherUser.name}
-                      className="w-10 h-10 rounded-full"
-                    />
-                    <div>
-                      <h2 className="font-semibold text-gray-900">{otherUser.name}</h2>
-                      <p className="text-sm text-gray-500">
-                        {otherUser.role === 'freelancer' ? 'Freelancer' : 'Client'}
-                      </p>
-                    </div>
-                  </>
-                )}
-              </div>
-              
-              <div className="flex items-center gap-2">
-                <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-                  <Phone className="h-5 w-5 text-gray-600" />
-                </button>
-                <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-                  <Video className="h-5 w-5 text-gray-600" />
-                </button>
-                <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-                  <Info className="h-5 w-5 text-gray-600" />
-                </button>
-                <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-                  <MoreVertical className="h-5 w-5 text-gray-600" />
-                </button>
-              </div>
+        {/* Conversation List */}
+        <div className="flex-1 overflow-y-auto">
+          {filteredConversations.length === 0 ? (
+            <div className="p-8 text-center text-gray-500">
+              <MessageSquare className="h-12 w-12 mx-auto mb-3 opacity-20" />
+              <p>No conversations found</p>
             </div>
-
-            {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50">
-              {messages.map((message, index) => {
-                const isOwnMessage = message.senderId === currentUser?.id;
-                const showAvatar = index === 0 || messages[index - 1].senderId !== message.senderId;
-                
-                return (
-                  <div
-                    key={message.id}
-                    className={`flex gap-3 ${isOwnMessage ? 'flex-row-reverse' : 'flex-row'}`}
-                  >
-                    {showAvatar ? (
-                      <img
-                        src={
-                          isOwnMessage 
-                            ? (currentUser.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser.name}`)
-                            : (otherUser?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${otherUser?.name}`)
-                        }
-                        alt="Avatar"
-                        className="w-8 h-8 rounded-full"
+          ) : (
+            filteredConversations.map((conversation) => (
+              <button
+                key={conversation.id}
+                onClick={() => {
+                  setSelectedConversationId(conversation.id);
+                  // Reset unread count for this conversation
+                  setConversations(prev =>
+                    prev.map(c =>
+                      c.id === conversation.id ? { ...c, unreadCount: 0 } : c
+                    )
+                  );
+                  // Update URL without refresh
+                  window.history.pushState({}, '', `/communication?conversationId=${conversation.id}`);
+                }}
+                className={`w-full p-4 flex items-start gap-3 hover:bg-gray-50 transition-colors border-b border-gray-100 ${
+                  selectedConversationId === conversation.id ? 'bg-blue-50 hover:bg-blue-50' : ''
+                }`}
+              >
+                <div className="relative flex-shrink-0">
+                  <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-200 relative">
+                    {conversation.otherUser?.avatar_url ? (
+                      <Image
+                        src={conversation.otherUser.avatar_url}
+                        alt={conversation.otherUser.full_name}
+                        fill
+                        className="object-cover"
                       />
                     ) : (
-                      <div className="w-8"></div>
+                      <div className="w-full h-full flex items-center justify-center bg-primary/10 text-primary font-bold text-lg">
+                        {conversation.otherUser?.full_name?.charAt(0) || '?'}
+                      </div>
                     )}
-                    
-                    <div className={`flex flex-col max-w-md ${isOwnMessage ? 'items-end' : 'items-start'}`}>
-                      <div
-                        className={`px-4 py-2 rounded-2xl ${
-                          isOwnMessage
-                            ? 'bg-primary text-gray-900'
-                            : 'bg-white border border-gray-200 text-gray-900'
-                        }`}
-                      >
-                        <p className="whitespace-pre-wrap break-words">{message.content}</p>
-                      </div>
-                      <div className="flex items-center gap-1 mt-1 px-2">
-                        <span className="text-xs text-gray-500">
-                          {formatTime(message.createdAt)}
-                        </span>
-                        {isOwnMessage && (
-                          message.read ? (
-                            <CheckCheck className="h-3 w-3 text-primary" />
-                          ) : (
-                            <Check className="h-3 w-3 text-gray-400" />
-                          )
-                        )}
-                      </div>
-                    </div>
                   </div>
-                );
-              })}
-              <div ref={messagesEndRef} />
-            </div>
-
-            {/* Message Input */}
-            <form onSubmit={handleSendMessage} className="p-4 border-t bg-white">
-              <div className="flex items-end gap-2">
-                <button
-                  type="button"
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                >
-                  <Paperclip className="h-5 w-5 text-gray-600" />
-                </button>
-                <button
-                  type="button"
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                >
-                  <ImageIcon className="h-5 w-5 text-gray-600" />
-                </button>
-                
-                <div className="flex-1 relative">
-                  <textarea
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        handleSendMessage(e);
-                      }
-                    }}
-                    placeholder="Type a message..."
-                    rows={1}
-                    className="w-full px-4 py-3 pr-10 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
-                    style={{ minHeight: '48px', maxHeight: '120px' }}
-                  />
-                  <button
-                    type="button"
-                    className="absolute right-3 bottom-3 p-1 hover:bg-gray-100 rounded transition-colors"
-                  >
-                    <Smile className="h-5 w-5 text-gray-600" />
-                  </button>
+                  {/* Online Status Indicator */}
+                  {onlineUsers.has(conversation.otherUser?.id) && (
+                    <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></span>
+                  )}
                 </div>
-                
-                <button
-                  type="submit"
-                  disabled={!newMessage.trim()}
-                  className="p-3 bg-primary text-gray-900 rounded-xl hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Send className="h-5 w-5" />
-                </button>
-              </div>
-              <p className="text-xs text-gray-500 mt-2 ml-2">
-                Press Enter to send, Shift + Enter for new line
-              </p>
-            </form>
-          </div>
-        ) : (
-          <div className="flex-1 hidden lg:flex items-center justify-center bg-gray-50">
-            <div className="text-center">
-              <div className="w-20 h-20 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Send className="h-10 w-10 text-gray-400" />
-              </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">Select a conversation</h3>
-              <p className="text-gray-600">
-                Choose a conversation from the list to start messaging
-              </p>
+
+                <div className="flex-1 min-w-0 text-left">
+                  <div className="flex justify-between items-baseline mb-1">
+                    <h3 className="font-semibold text-gray-900 truncate">
+                      {conversation.otherUser?.full_name || 'Unknown User'}
+                    </h3>
+                    {conversation.lastMessage && (
+                      <span className="text-xs text-gray-500 whitespace-nowrap ml-2">
+                        {formatTime(conversation.lastMessage.created_at)}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <p className={`text-sm truncate pr-2 ${
+                      conversation.lastMessage && !conversation.lastMessage.read && conversation.lastMessage.sender_id !== user?.id
+                        ? 'font-bold text-gray-900' 
+                        : 'text-gray-500'
+                    }`}>
+                      {conversation.lastMessage ? (
+                        <>
+                          {conversation.lastMessage.sender_id === user?.id && (
+                            <span className="font-semibold">You: </span>
+                          )}
+                          {conversation.lastMessage.content}
+                        </>
+                      ) : (
+                        'Started a conversation'
+                      )}
+                    </p>
+                    {conversation.unreadCount && conversation.unreadCount > 0 ? (
+                      <span className="min-w-[20px] h-5 px-1.5 bg-primary text-white text-xs font-bold rounded-full flex items-center justify-center flex-shrink-0 animate-pulse">
+                        {conversation.unreadCount > 99 ? '99+' : conversation.unreadCount}
+                      </span>
+                    ) : conversation.lastMessage && !conversation.lastMessage.read && conversation.lastMessage.sender_id !== user?.id ? (
+                      <span className="w-2.5 h-2.5 bg-primary rounded-full flex-shrink-0 animate-pulse"></span>
+                    ) : null}
+                  </div>
+                </div>
+              </button>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* Main Chat Area */}
+      <div className={`flex-1 flex flex-col bg-white ${
+        !selectedConversationId ? 'hidden md:flex' : 'flex'
+      }`}>
+        {selectedConversation ? (
+          <>
+            {/* Mobile Header to go back */}
+            <div className="md:hidden flex items-center p-4 border-b">
+              <button 
+                onClick={() => setSelectedConversationId(null)}
+                className="mr-3 text-gray-600"
+              >
+                <ArrowLeft className="h-6 w-6" />
+              </button>
+              <h2 className="font-semibold">
+                {selectedConversation.otherUser?.full_name || 'Chat'}
+              </h2>
             </div>
+            
+            <ChatBox
+              conversationId={selectedConversation.id}
+              recipientId={selectedConversation.otherUser?.id}
+              recipientName={selectedConversation.otherUser?.full_name}
+              recipientAvatar={selectedConversation.otherUser?.avatar_url}
+              jobId={selectedConversation.job_id || undefined}
+              isOnline={onlineUsers.has(selectedConversation.otherUser?.id)}
+            />
+          </>
+        ) : (
+          <div className="flex-1 flex-col items-center justify-center text-gray-400 p-8 hidden md:flex">
+            <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+              <MessageSquare className="h-12 w-12 text-gray-300" />
+            </div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">Your Messages</h3>
+            <p className="text-center max-w-sm">
+              Select a conversation from the sidebar to start messaging with clients or freelancers.
+            </p>
           </div>
         )}
       </div>

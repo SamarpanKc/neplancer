@@ -5,6 +5,7 @@ import Navbar from "./components/navbar";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { Toaster } from "sonner";
 import { ReactQueryProvider } from "@/lib/providers/ReactQueryProvider";
+import { AuthProvider } from "@/lib/providers/AuthProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -33,16 +34,18 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         <ReactQueryProvider>
-          <ErrorBoundary>
-            <Navbar />
-            {children}
-            <Toaster 
-              position="top-right"
-              richColors
-              closeButton
-              duration={4000}
-            />
-          </ErrorBoundary>
+          <AuthProvider>
+            <ErrorBoundary>
+              <Navbar />
+              {children}
+              <Toaster 
+                position="top-right"
+                richColors
+                closeButton
+                duration={4000}
+              />
+            </ErrorBoundary>
+          </AuthProvider>
         </ReactQueryProvider>
       </body>
     </html>

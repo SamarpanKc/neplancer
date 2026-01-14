@@ -125,52 +125,39 @@ export async function getCurrentUser(): Promise<User | null> {
   const { data: { user }, error } = await supabase.auth.getUser();
   
   if (error || !user) {
-    
     return null;
   }
 
-  // Fetch profile to get role and avatar
+  // Single optimized query with joins to get all data at once
   const { data: profile } = await supabase
     .from('profiles')
-    .select('*')
+    .select(`
+      *,
+      freelancers(completed_jobs, total_earned, rating),
+      clients(jobs_posted, total_spent)
+    `)
     .eq('id', user.id)
     .single();
 
   if (!profile) {
-    
     return null;
   }
 
-  // Fetch role-specific data and stats
+  // Build stats from joined data
   let stats = {};
-  
-  if (profile.role === 'freelancer') {
-    const { data: freelancerData } = await supabase
-      .from('freelancers')
-      .select('completed_jobs, total_earned, rating')
-      .eq('profile_id', user.id)
-      .single();
-    
-    if (freelancerData) {
-      stats = {
-        completedJobs: freelancerData.completed_jobs || 0,
-        totalEarnings: freelancerData.total_earned || 0,
-        rating: freelancerData.rating || 5.0,
-      };
-    }
-  } else if (profile.role === 'client') {
-    const { data: clientData } = await supabase
-      .from('clients')
-      .select('jobs_posted, total_spent')
-      .eq('profile_id', user.id)
-      .single();
-    
-    if (clientData) {
-      stats = {
-        jobsPosted: clientData.jobs_posted || 0,
-        totalSpent: clientData.total_spent || 0,
-      };
-    }
+  if (profile.role === 'freelancer' && profile.freelancers?.[0]) {
+    const freelancerData = profile.freelancers[0];
+    stats = {
+      completedJobs: freelancerData.completed_jobs || 0,
+      totalEarnings: freelancerData.total_earned || 0,
+      rating: freelancerData.rating || 5.0,
+    };
+  } else if (profile.role === 'client' && profile.clients?.[0]) {
+    const clientData = profile.clients[0];
+    stats = {
+      jobsPosted: clientData.jobs_posted || 0,
+      totalSpent: clientData.total_spent || 0,
+    };
   }
 
   return {

@@ -222,7 +222,9 @@ export default function BrowseJobsPage() {
         throw new Error(data.error || 'Failed to submit proposal');
       }
 
-      toast.success('Proposal submitted successfully!');
+      toast.success(data.message || 'Proposal submitted successfully! The client has been notified and will review your proposal.', {
+        duration: 5000,
+      });
       setSelectedJobForApply(null);
       
       // Refresh jobs to update proposal counts
@@ -240,6 +242,15 @@ export default function BrowseJobsPage() {
     }
 
     try {
+      // Verify session is still valid before making request
+      const { data: { session } } = await (await import('@/lib/supabase')).supabase.auth.getSession();
+      
+      if (!session) {
+        toast.error('Your session has expired. Please log in again.');
+        router.push('/login');
+        return;
+      }
+
       // Create or get existing conversation
       const response = await fetch('/api/conversations', {
         method: 'POST',
