@@ -21,10 +21,17 @@ export async function POST(request: Request) {
 
     const data = await signUp(validatedData);
 
+    // Check if email confirmation is required
+    const emailConfirmationRequired = !data.session;
+
     return NextResponse.json({
       success: true,
       user: data.user,
       session: data.session,
+      message: emailConfirmationRequired 
+        ? 'Registration successful! Please check your email to verify your account.'
+        : 'Registration successful! Welcome to Neplancer.',
+      emailConfirmationRequired,
     });
   } catch (error: any) {
     if (error instanceof ZodError) {

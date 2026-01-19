@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
+import BankDetailsSettings from "@/components/BankDetailsSettings";
 
 export default function SettingsPage() {
   const { user } = useAuth();
@@ -193,6 +194,11 @@ export default function SettingsPage() {
                     </div>
                     <Button className="bg-foreground hover:bg-gray-800">Update Password</Button>
                   </div>
+                </div>
+
+                {/* Bank Details */}
+                <div className="mt-8 pt-6 border-t border-gray-200">
+                  <BankDetailsSettings />
                 </div>
 
                 {/* Danger Zone */}

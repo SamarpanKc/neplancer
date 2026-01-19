@@ -156,6 +156,18 @@ export default function ClientProfileSetup() {
       // Update local auth state
       await initialize();
       
+      // Send profile completion email notification
+      try {
+        await fetch('/api/auth/profile-completed', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        console.log('✅ Profile completion email sent');
+      } catch (emailError) {
+        console.error('⚠️ Failed to send profile completion email:', emailError);
+        // Don't block on email failure
+      }
+      
       setSuccess(true);
       
       setTimeout(() => {

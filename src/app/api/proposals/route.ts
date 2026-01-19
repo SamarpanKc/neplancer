@@ -242,7 +242,7 @@ export async function POST(request: Request) {
     if (conversationId) {
       const proposalMessage = `📝 **New Proposal Submitted**\n\n` +
         `I would like to work on your job: **${job.title}**\n\n` +
-        `**Proposed Budget:** NPR ${parseFloat(proposed_budget).toLocaleString()}\n` +
+        `**Proposed Budget:** $${parseFloat(proposed_budget).toLocaleString()}\n` +
         `**Estimated Duration:** ${estimated_duration}\n\n` +
         `**Cover Letter:**\n${cover_letter}\n\n` +
         `View full proposal: /client/proposals/${data.id}`;

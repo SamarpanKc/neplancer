@@ -4,8 +4,8 @@ import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Manrope } from 'next/font/google';
 import { Search, Filter, Grid, List, Star, MapPin, DollarSign, Clock, CheckCircle, Award } from 'lucide-react';
-import { demoApi } from '@/lib/demoApi';
-import { Freelancer } from '@/types';
+import { searchAndRankFreelancers, RankedFreelancer } from '@/lib/recommendation';
+import { mapFreelancer } from '@/lib/mappers';
 
 const manrope = Manrope({
   subsets: ["latin"],
@@ -25,8 +25,7 @@ const CATEGORIES = [
 function SearchFreelancersContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const [freelancers, setFreelancers] = useState<Freelancer[]>([]);
-  const [filteredFreelancers, setFilteredFreelancers] = useState<Freelancer[]>([]);
+  const [rankedFreelancers, setRankedFreelancers] = useState<RankedFreelancer[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   
@@ -35,95 +34,88 @@ function SearchFreelancersContent() {
   const [selectedCategory, setSelectedCategory] = useState(searchParams.get('category') || 'All Categories');
   const [minRating, setMinRating] = useState(0);
   const [maxRate, setMaxRate] = useState(10000);
-  const [sortBy, setSortBy] = useState('rating');
+  const [sortBy, setSortBy] = useState('recommended'); // Changed default to 'recommended'
   const [showFilters, setShowFilters] = useState(false);
 
-  // Load freelancers
+  // Load and filter freelancers using recommendation system
   useEffect(() => {
     const loadFreelancers = async () => {
       setLoading(true);
-      const data = await demoApi.getAllFreelancers();
-      setFreelancers(data);
-      setFilteredFreelancers(data);
-      setLoading(false);
+      try {
+        // Use the recommendation system to get ranked freelancers
+        const results = await searchAndRankFreelancers({
+          query: searchQuery || undefined,
+          category: selectedCategory !== 'All Categories' ? selectedCategory : undefined,
+          minRating: minRating > 0 ? minRating : undefined,
+          maxRate: maxRate < 10000 ? maxRate : undefined,
+        });
+        
+        // Apply sorting
+        let sortedResults = [...results];
+        switch (sortBy) {
+          case 'recommended':
+            // Already sorted by recommendation score
+            break;
+          case 'rating':
+            sortedResults.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+            break;
+          case 'price-low':
+            sortedResults.sort((a, b) => (a.hourly_rate || 0) - (b.hourly_rate || 0));
+            break;
+          case 'price-high':
+            sortedResults.sort((a, b) => (b.hourly_rate || 0) - (a.hourly_rate || 0));
+            break;
+          case 'reviews':
+            sortedResults.sort((a, b) => (b.completed_jobs || 0) - (a.completed_jobs || 0));
+            break;
+        }
+        
+        setRankedFreelancers(sortedResults);
+      } catch (error) {
+        console.error('Error loading freelancers:', error);
+      } finally {
+        setLoading(false);
+      }
     };
+    
     loadFreelancers();
-  }, []);
+  }, [searchQuery, selectedCategory, minRating, maxRate, sortBy]);
 
-  // Apply filters
-  useEffect(() => {
-    let results = [...freelancers];
-
-    // Search filter
-    if (searchQuery.trim()) {
-      results = results.filter(f =>
-        f.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        f.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        f.skills.some(s => s.toLowerCase().includes(searchQuery.toLowerCase()))
-      );
-    }
-
-    // Category filter
-    if (selectedCategory !== 'All Categories') {
-      results = results.filter(f =>
-        f.skills.some(skill => skill.includes(selectedCategory.replace(' Development', '').replace(' Design', '')))
-      );
-    }
-
-    // Rating filter
-    if (minRating > 0) {
-      results = results.filter(f => (f.rating || 0) >= minRating);
-    }
-
-    // Rate filter
-    if (maxRate < 10000) {
-      results = results.filter(f => (f.hourlyRate || 0) <= maxRate);
-    }
-
-    // Sort
-    switch (sortBy) {
-      case 'rating':
-        results.sort((a, b) => (b.rating || 0) - (a.rating || 0));
-        break;
-      case 'price-low':
-        results.sort((a, b) => (a.hourlyRate || 0) - (b.hourlyRate || 0));
-        break;
-      case 'price-high':
-        results.sort((a, b) => (b.hourlyRate || 0) - (a.hourlyRate || 0));
-        break;
-      case 'reviews':
-        results.sort((a, b) => (b.completedJobs || 0) - (a.completedJobs || 0));
-        break;
-    }
-
-    setFilteredFreelancers(results);
-  }, [searchQuery, selectedCategory, minRating, maxRate, sortBy, freelancers]);
-
-  const FreelancerCard = ({ freelancer }: { freelancer: Freelancer }) => {
+  const FreelancerCard = ({ freelancer }: { freelancer: RankedFreelancer }) => {
+    const profile = freelancer.profiles;
+    const name = profile?.full_name || 'Unknown';
+    const avatar = profile?.avatar_url || `https://i.pravatar.cc/150?img=${Math.floor(Math.random() * 70)}`;
+    
     if (viewMode === 'grid') {
       return (
         <div 
           onClick={() => router.push(`/freelancer/profile/${freelancer.id}`)}
-          className="bg-white rounded-xl border-2 border-gray-200 hover:border-[#0CF574] transition-all p-6 cursor-pointer hover:shadow-lg"
+          className="bg-white rounded-xl border-2 border-gray-200 hover:border-[#0CF574] transition-all p-6 cursor-pointer hover:shadow-lg relative"
         >
+          {/* Recommendation Badge */}
+          {freelancer.score && (
+            <div className="absolute top-4 right-4">
+              <div className="bg-[#0CF574]/10 text-[#0CF574] px-2 py-1 rounded-md text-xs font-bold">
+                Match: {Math.round(freelancer.score.finalScore)}%
+              </div>
+            </div>
+          )}
+          
           {/* Avatar */}
           <div className="flex items-start gap-4 mb-4">
             <img
-              src={freelancer.avatar || `https://i.pravatar.cc/150?img=${Math.floor(Math.random() * 70)}`}
-              alt={freelancer.name}
+              src={avatar}
+              alt={name}
               className="w-16 h-16 rounded-full object-cover"
             />
             <div className="flex-1">
-              <h3 className="text-xl font-bold text-gray-900">{freelancer.name}</h3>
-              <p className="text-gray-600 text-sm">{freelancer.title}</p>
-              {freelancer.badges && freelancer.badges.length > 0 && (
-                <div className="flex items-center gap-1 mt-1">
-                  {freelancer.badges.slice(0, 2).map(badge => (
-                    <span key={badge} className="px-2 py-0.5 bg-[#0CF574]/10 text-[#0CF574] text-xs font-bold rounded">
-                      {badge === 'Top Rated' ? '🏆' : '⚡'} {badge}
-                    </span>
-                  ))}
-                </div>
+              <h3 className="text-xl font-bold text-gray-900">{name}</h3>
+              <p className="text-gray-600 text-sm">{freelancer.title || 'Freelancer'}</p>
+              {freelancer.status === 'available' && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 text-xs font-semibold rounded mt-1">
+                  <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                  Available
+                </span>
               )}
             </div>
           </div>
@@ -131,20 +123,20 @@ function SearchFreelancersContent() {
           {/* Rating */}
           <div className="flex items-center gap-2 mb-3">
             <Star className="w-5 h-5 fill-yellow-400 text-yellow-400" />
-            <span className="font-bold">{freelancer.rating?.toFixed(1)}</span>
-            <span className="text-gray-500 text-sm">({freelancer.completedJobs} jobs)</span>
+            <span className="font-bold">{(freelancer.rating || 0).toFixed(1)}</span>
+            <span className="text-gray-500 text-sm">({freelancer.completed_jobs || 0} jobs)</span>
           </div>
 
           {/* Skills */}
           <div className="flex flex-wrap gap-2 mb-4">
-            {freelancer.skills.slice(0, 4).map(skill => (
-              <span key={skill} className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded-full">
+            {(freelancer.skills || []).slice(0, 4).map((skill, idx) => (
+              <span key={idx} className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded-full">
                 {skill}
               </span>
             ))}
-            {freelancer.skills.length > 4 && (
+            {(freelancer.skills || []).length > 4 && (
               <span className="px-3 py-1 bg-gray-200 text-gray-600 text-sm rounded-full">
-                +{freelancer.skills.length - 4}
+                +{(freelancer.skills || []).length - 4}
               </span>
             )}
           </div>
@@ -153,7 +145,7 @@ function SearchFreelancersContent() {
           <div className="flex items-center justify-between pt-4 border-t">
             <div className="flex items-center gap-1 text-gray-900 font-bold">
               <DollarSign className="w-4 h-4" />
-              ₹{freelancer.hourlyRate?.toLocaleString()}/hr
+              ${(freelancer.hourly_rate || 0).toLocaleString()}/hr
             </div>
             <button className="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-black transition-colors text-sm font-semibold">
               View Profile
@@ -167,47 +159,50 @@ function SearchFreelancersContent() {
     return (
       <div 
         onClick={() => router.push(`/freelancer/profile/${freelancer.id}`)}
-        className="bg-white rounded-xl border-2 border-gray-200 hover:border-[#0CF574] transition-all p-6 cursor-pointer hover:shadow-lg"
+        className="bg-white rounded-xl border-2 border-gray-200 hover:border-[#0CF574] transition-all p-6 cursor-pointer hover:shadow-lg relative"
       >
+        {/* Recommendation Badge */}
+        {freelancer.score && (
+          <div className="absolute top-4 right-4">
+            <div className="bg-[#0CF574]/10 text-[#0CF574] px-3 py-1.5 rounded-md text-sm font-bold">
+              {Math.round(freelancer.score.finalScore)}% Match
+            </div>
+          </div>
+        )}
+        
         <div className="flex items-start gap-6">
           <img
-            src={freelancer.avatar || `https://i.pravatar.cc/150?img=${Math.floor(Math.random() * 70)}`}
-            alt={freelancer.name}
+            src={avatar}
+            alt={name}
             className="w-20 h-20 rounded-full object-cover"
           />
           
           <div className="flex-1">
-            <div className="flex items-start justify-between mb-2">
+            <div className="flex items-start justify-between mb-2 pr-20">
               <div>
-                <h3 className="text-2xl font-bold text-gray-900">{freelancer.name}</h3>
-                <p className="text-gray-600">{freelancer.title}</p>
+                <h3 className="text-2xl font-bold text-gray-900">{name}</h3>
+                <p className="text-gray-600">{freelancer.title || 'Freelancer'}</p>
+                {freelancer.status === 'available' && (
+                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 text-xs font-semibold rounded mt-1">
+                    <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                    Available Now
+                  </span>
+                )}
               </div>
               <div className="text-right">
-                <div className="text-2xl font-bold text-gray-900">₹{freelancer.hourlyRate?.toLocaleString()}/hr</div>
+                <div className="text-2xl font-bold text-gray-900">${(freelancer.hourly_rate || 0).toLocaleString()}/hr</div>
                 <div className="flex items-center gap-1 justify-end">
                   <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                  <span className="font-bold">{freelancer.rating?.toFixed(1)}</span>
-                  <span className="text-gray-500 text-sm">({freelancer.completedJobs})</span>
+                  <span className="font-bold">{(freelancer.rating || 0).toFixed(1)}</span>
+                  <span className="text-gray-500 text-sm">({freelancer.completed_jobs || 0})</span>
                 </div>
               </div>
             </div>
 
-            {/* Badges */}
-            {freelancer.badges && freelancer.badges.length > 0 && (
-              <div className="flex flex-wrap gap-2 mb-3">
-                {freelancer.badges.map(badge => (
-                  <span key={badge} className="px-3 py-1 bg-[#0CF574]/10 text-[#0CF574] text-sm font-bold rounded-full flex items-center gap-1">
-                    <CheckCircle className="w-4 h-4" />
-                    {badge}
-                  </span>
-                ))}
-              </div>
-            )}
-
             {/* Skills */}
             <div className="flex flex-wrap gap-2 mb-4">
-              {freelancer.skills.map(skill => (
-                <span key={skill} className="px-3 py-1.5 bg-gray-100 text-gray-700 text-sm rounded-full">
+              {(freelancer.skills || []).map((skill, idx) => (
+                <span key={idx} className="px-3 py-1.5 bg-gray-100 text-gray-700 text-sm rounded-full">
                   {skill}
                 </span>
               ))}
@@ -217,11 +212,11 @@ function SearchFreelancersContent() {
             <div className="flex items-center gap-6 text-sm text-gray-600">
               <div className="flex items-center gap-1">
                 <Award className="w-4 h-4" />
-                ₹{freelancer.totalEarned?.toLocaleString()} earned
+                ${(freelancer.total_earned || 0).toLocaleString()} earned
               </div>
               <div className="flex items-center gap-1">
                 <CheckCircle className="w-4 h-4" />
-                {freelancer.completedJobs} jobs completed
+                {freelancer.completed_jobs || 0} jobs completed
               </div>
             </div>
           </div>
@@ -319,9 +314,9 @@ function SearchFreelancersContent() {
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0CF574]"
                 >
                   <option value={10000}>Any Rate</option>
-                  <option value={5000}>₹5,000 or less</option>
-                  <option value={3000}>₹3,000 or less</option>
-                  <option value={2000}>₹2,000 or less</option>
+                  <option value={5000}>$5,000 or less</option>
+                  <option value={3000}>$3,000 or less</option>
+                  <option value={2000}>$2,000 or less</option>
                 </select>
               </div>
 
@@ -334,10 +329,11 @@ function SearchFreelancersContent() {
                   onChange={(e) => setSortBy(e.target.value)}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0CF574]"
                 >
+                  <option value="recommended">Recommended</option>
                   <option value="rating">Highest Rated</option>
                   <option value="price-low">Price: Low to High</option>
                   <option value="price-high">Price: High to Low</option>
-                  <option value="reviews">Most Reviews</option>
+                  <option value="reviews">Most Jobs Completed</option>
                 </select>
               </div>
             </div>
@@ -347,7 +343,7 @@ function SearchFreelancersContent() {
         {/* View Toggle and Results Count */}
         <div className="flex items-center justify-between mb-6">
           <p className="text-gray-600">
-            Showing <span className="font-bold">{filteredFreelancers.length}</span> results
+            Showing <span className="font-bold">{rankedFreelancers.length}</span> results
           </p>
           <div className="flex gap-2">
             <button
@@ -374,7 +370,7 @@ function SearchFreelancersContent() {
         </div>
 
         {/* Results */}
-        {filteredFreelancers.length === 0 ? (
+        {rankedFreelancers.length === 0 ? (
           <div className="bg-white rounded-xl shadow-sm border p-12 text-center">
             <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <Search className="w-8 h-8 text-gray-400" />
@@ -398,7 +394,7 @@ function SearchFreelancersContent() {
             ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
             : "space-y-4"
           }>
-            {filteredFreelancers.map(freelancer => (
+            {rankedFreelancers.map(freelancer => (
               <FreelancerCard key={freelancer.id} freelancer={freelancer} />
             ))}
           </div>

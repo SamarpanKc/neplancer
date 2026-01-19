@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Loader2, ArrowLeft, FileSignature, DollarSign, Calendar, CheckCircle } from 'lucide-react';
+import { Loader2, ArrowLeft, FileSignature, DollarSign, Calendar, CheckCircle, Plus, Minus, Info, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 
 function CreateContractForm() {
@@ -28,10 +28,14 @@ function CreateContractForm() {
     title: '',
     description: '',
     budget: '',
+    hourly_rate: '',
+    estimated_hours: '',
     start_date: '',
     end_date: '',
+    terms: '',
+    deliverables: '',
     payment_terms: '',
-    milestones: [] as { title: string; amount: string; due_date: string }[],
+    milestones: [] as { title: string; description: string; amount: string; due_date: string }[],
   });
 
   useEffect(() => {
@@ -45,7 +49,9 @@ function CreateContractForm() {
 
   const fetchProposal = async () => {
     try {
-      const response = await fetch(`/api/proposals?proposalId=${proposalId}`);
+      const response = await fetch(`/api/proposals?proposalId=${proposalId}`, {
+        credentials: 'include'
+      });
       const data = await response.json();
       
       if (response.ok && data.proposals?.[0]) {
@@ -76,7 +82,7 @@ function CreateContractForm() {
       ...prev,
       milestones: [
         ...prev.milestones,
-        { title: '', amount: '', due_date: '' }
+        { title: '', description: '', amount: '', due_date: '' }
       ]
     }));
   };
@@ -97,6 +103,55 @@ function CreateContractForm() {
     }));
   };
 
+  const validateForm = () => {
+    if (!formData.title.trim()) {
+      toast.error('Please enter a contract title');
+      return false;
+    }
+    
+    if (!formData.description.trim()) {
+      toast.error('Please enter a contract description');
+      return false;
+    }
+    
+    if (formData.contract_type === 'hourly') {
+      if (!formData.hourly_rate || parseFloat(formData.hourly_rate) <= 0) {
+        toast.error('Please enter a valid hourly rate');
+        return false;
+      }
+      if (!formData.estimated_hours || parseFloat(formData.estimated_hours) <= 0) {
+        toast.error('Please enter estimated hours');
+        return false;
+      }
+    } else {
+      if (!formData.budget || parseFloat(formData.budget) <= 0) {
+        toast.error('Please enter a valid budget');
+        return false;
+      }
+    }
+    
+    if (formData.contract_type === 'milestone' && formData.milestones.length === 0) {
+      toast.error('Please add at least one milestone for milestone-based contracts');
+      return false;
+    }
+    
+    return true;
+  };
+
+  const calculateTotalMilestones = () => {
+    return formData.milestones.reduce((total, m) => total + (parseFloat(m.amount) || 0), 0);
+  };
+
+  useEffect(() => {
+    if (formData.contract_type === 'milestone' && formData.milestones.length > 0 && formData.budget) {
+      const totalMilestones = calculateTotalMilestones();
+      const budget = parseFloat(formData.budget);
+      if (Math.abs(totalMilestones - budget) > 0.01) {
+        console.warn('Milestone total does not match budget');
+      }
+    }
+  }, [formData.milestones, formData.budget, formData.contract_type]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -105,9 +160,7 @@ function CreateContractForm() {
       return;
     }
 
-    // Validate form
-    if (!formData.title || !formData.budget) {
-      toast.error('Please fill in all required fields');
+    if (!validateForm()) {
       return;
     }
 
@@ -115,7 +168,10 @@ function CreateContractForm() {
     try {
       const response = await fetch('/api/contracts', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include', // Include cookies for authentication
         body: JSON.stringify({
           proposal_id: proposalId,
           freelancer_id: proposal.freelancer_id,
@@ -195,7 +251,7 @@ function CreateContractForm() {
               </div>
               <div>
                 <span className="text-gray-600">Proposed Budget:</span>
-                <span className="ml-2 font-semibold">NPR {proposal.proposed_budget?.toLocaleString()}</span>
+                <span className="ml-2 font-semibold">${proposal.proposed_budget?.toLocaleString()}</span>
               </div>
             </div>
           </div>
@@ -254,7 +310,7 @@ function CreateContractForm() {
           <div>
             <label className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
               <DollarSign className="h-4 w-4" />
-              Total Budget (NPR) *
+              Total Budget (USD) *
             </label>
             <input
               type="number"
@@ -265,6 +321,40 @@ function CreateContractForm() {
               required
             />
           </div>
+
+          {/* Hourly Rate and Estimated Hours (for hourly contracts) */}
+          {formData.contract_type === 'hourly' && (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                  <DollarSign className="h-4 w-4" />
+                  Hourly Rate (USD) *
+                </label>
+                <input
+                  type="number"
+                  value={formData.hourly_rate}
+                  onChange={(e) => setFormData(prev => ({ ...prev, hourly_rate: e.target.value }))}
+                  placeholder="50"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                  required
+                />
+              </div>
+              <div>
+                <label className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                  <Info className="h-4 w-4" />
+                  Estimated Hours *
+                </label>
+                <input
+                  type="number"
+                  value={formData.estimated_hours}
+                  onChange={(e) => setFormData(prev => ({ ...prev, estimated_hours: e.target.value }))}
+                  placeholder="160"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                  required
+                />
+              </div>
+            </div>
+          )}
 
           {/* Dates */}
           <div className="grid grid-cols-2 gap-4">
@@ -310,6 +400,36 @@ function CreateContractForm() {
             </div>
           )}
 
+          {/* Terms and Deliverables */}
+          {contractType === 'custom' && (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Terms
+                </label>
+                <textarea
+                  value={formData.terms}
+                  onChange={(e) => setFormData(prev => ({ ...prev, terms: e.target.value }))}
+                  placeholder="Enter the terms of the contract..."
+                  rows={3}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Deliverables
+                </label>
+                <textarea
+                  value={formData.deliverables}
+                  onChange={(e) => setFormData(prev => ({ ...prev, deliverables: e.target.value }))}
+                  placeholder="List the deliverables..."
+                  rows={3}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                />
+              </div>
+            </div>
+          )}
+
           {/* Milestones (for milestone-based contracts) */}
           {formData.contract_type === 'milestone' && contractType === 'custom' && (
             <div>
@@ -345,12 +465,19 @@ function CreateContractForm() {
                       placeholder="Milestone title"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
                     />
+                    <textarea
+                      value={milestone.description}
+                      onChange={(e) => handleMilestoneChange(index, 'description', e.target.value)}
+                      placeholder="Milestone description"
+                      rows={2}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    />
                     <div className="grid grid-cols-2 gap-2">
                       <input
                         type="number"
                         value={milestone.amount}
                         onChange={(e) => handleMilestoneChange(index, 'amount', e.target.value)}
-                        placeholder="Amount (NPR)"
+                        placeholder="Amount (USD)"
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
                       />
                       <input

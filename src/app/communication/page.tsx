@@ -319,21 +319,25 @@ export default function CommunicationPage() {
   }
 
   return (
-    <div className="h-[calc(100vh-64px)] bg-gray-100 flex overflow-hidden">
+    <div className="h-screen md:h-[calc(100vh-64px)] bg-gray-100 flex overflow-hidden">
       {/* Sidebar - Conversation List */}
       <div className={`${
         selectedConversationId ? 'hidden md:flex' : 'flex'
-      } w-full md:w-96 flex-col bg-white border-r border-gray-200`}>
+      } w-full md:w-80 lg:w-96 flex-col bg-white border-r border-gray-200 shadow-sm`}>
         {/* Search Header */}
-        <div className="p-4 border-b border-gray-200">
+        <div className="p-3 md:p-4 border-b border-gray-200 bg-white sticky top-0 z-10">
+          <h2 className="text-lg font-bold text-gray-900 mb-3 flex items-center gap-2">
+            <MessageSquare className="h-5 w-5 text-primary" />
+            Messages
+          </h2>
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-5 w-5" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4 md:h-5 md:w-5" />
             <input
               type="text"
-              placeholder="Search messages..."
+              placeholder="Search conversations..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              className="w-full pl-9 md:pl-10 pr-4 py-2 md:py-2.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent bg-gray-50"
             />
           </div>
         </div>
@@ -360,12 +364,12 @@ export default function CommunicationPage() {
                   // Update URL without refresh
                   window.history.pushState({}, '', `/communication?conversationId=${conversation.id}`);
                 }}
-                className={`w-full p-4 flex items-start gap-3 hover:bg-gray-50 transition-colors border-b border-gray-100 ${
-                  selectedConversationId === conversation.id ? 'bg-blue-50 hover:bg-blue-50' : ''
+                className={`w-full p-3 md:p-4 flex items-start gap-2 md:gap-3 hover:bg-gray-50 transition-all duration-150 border-b border-gray-100 ${
+                  selectedConversationId === conversation.id ? 'bg-blue-50 hover:bg-blue-50 border-l-4 border-l-primary' : ''
                 }`}
               >
                 <div className="relative flex-shrink-0">
-                  <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-200 relative">
+                  <div className="w-10 h-10 md:w-12 md:h-12 rounded-full overflow-hidden bg-gray-200 relative ring-2 ring-white">
                     {conversation.otherUser?.avatar_url ? (
                       <Image
                         src={conversation.otherUser.avatar_url}
@@ -374,51 +378,51 @@ export default function CommunicationPage() {
                         className="object-cover"
                       />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-primary/10 text-primary font-bold text-lg">
+                      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-primary/10 text-primary font-bold text-base md:text-lg">
                         {conversation.otherUser?.full_name?.charAt(0) || '?'}
                       </div>
                     )}
                   </div>
                   {/* Online Status Indicator */}
                   {onlineUsers.has(conversation.otherUser?.id) && (
-                    <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></span>
+                    <span className="absolute bottom-0 right-0 w-2.5 h-2.5 md:w-3 md:h-3 bg-green-500 border-2 border-white rounded-full animate-pulse"></span>
                   )}
                 </div>
 
                 <div className="flex-1 min-w-0 text-left">
                   <div className="flex justify-between items-baseline mb-1">
-                    <h3 className="font-semibold text-gray-900 truncate">
+                    <h3 className="font-semibold text-sm md:text-base text-gray-900 truncate">
                       {conversation.otherUser?.full_name || 'Unknown User'}
                     </h3>
                     {conversation.lastMessage && (
-                      <span className="text-xs text-gray-500 whitespace-nowrap ml-2">
+                      <span className="text-xs text-gray-500 whitespace-nowrap ml-2 font-medium">
                         {formatTime(conversation.lastMessage.created_at)}
                       </span>
                     )}
                   </div>
-                  <div className="flex justify-between items-center">
-                    <p className={`text-sm truncate pr-2 ${
+                  <div className="flex justify-between items-center gap-2">
+                    <p className={`text-xs md:text-sm truncate flex-1 ${
                       conversation.lastMessage && !conversation.lastMessage.read && conversation.lastMessage.sender_id !== user?.id
                         ? 'font-bold text-gray-900' 
-                        : 'text-gray-500'
+                        : 'text-gray-600'
                     }`}>
                       {conversation.lastMessage ? (
                         <>
                           {conversation.lastMessage.sender_id === user?.id && (
-                            <span className="font-semibold">You: </span>
+                            <span className="font-semibold text-gray-500">You: </span>
                           )}
                           {conversation.lastMessage.content}
                         </>
                       ) : (
-                        'Started a conversation'
+                        <span className="text-gray-400 italic">Started a conversation</span>
                       )}
                     </p>
                     {conversation.unreadCount && conversation.unreadCount > 0 ? (
-                      <span className="min-w-[20px] h-5 px-1.5 bg-primary text-white text-xs font-bold rounded-full flex items-center justify-center flex-shrink-0 animate-pulse">
+                      <span className="min-w-[18px] md:min-w-[20px] h-5 px-1.5 bg-gradient-to-r from-primary to-blue-600 text-white text-[10px] md:text-xs font-bold rounded-full flex items-center justify-center flex-shrink-0 shadow-sm">
                         {conversation.unreadCount > 99 ? '99+' : conversation.unreadCount}
                       </span>
                     ) : conversation.lastMessage && !conversation.lastMessage.read && conversation.lastMessage.sender_id !== user?.id ? (
-                      <span className="w-2.5 h-2.5 bg-primary rounded-full flex-shrink-0 animate-pulse"></span>
+                      <span className="w-2 h-2 bg-primary rounded-full flex-shrink-0"></span>
                     ) : null}
                   </div>
                 </div>
@@ -435,16 +439,40 @@ export default function CommunicationPage() {
         {selectedConversation ? (
           <>
             {/* Mobile Header to go back */}
-            <div className="md:hidden flex items-center p-4 border-b">
+            <div className="md:hidden flex items-center gap-3 p-3 border-b bg-white shadow-sm sticky top-0 z-10">
               <button 
                 onClick={() => setSelectedConversationId(null)}
-                className="mr-3 text-gray-600"
+                className="text-gray-600 hover:text-gray-900 transition-colors"
               >
                 <ArrowLeft className="h-6 w-6" />
               </button>
-              <h2 className="font-semibold">
-                {selectedConversation.otherUser?.full_name || 'Chat'}
-              </h2>
+              <div className="relative flex-shrink-0">
+                <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-200 relative">
+                  {selectedConversation.otherUser?.avatar_url ? (
+                    <Image
+                      src={selectedConversation.otherUser.avatar_url}
+                      alt={selectedConversation.otherUser.full_name}
+                      fill
+                      className="object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-primary/10 text-primary font-bold">
+                      {selectedConversation.otherUser?.full_name?.charAt(0) || '?'}
+                    </div>
+                  )}
+                </div>
+                {onlineUsers.has(selectedConversation.otherUser?.id) && (
+                  <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-white rounded-full"></span>
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <h2 className="font-semibold text-gray-900 truncate text-sm">
+                  {selectedConversation.otherUser?.full_name || 'Chat'}
+                </h2>
+                <p className="text-xs text-gray-500">
+                  {onlineUsers.has(selectedConversation.otherUser?.id) ? 'Online' : 'Offline'}
+                </p>
+              </div>
             </div>
             
             <ChatBox
@@ -457,14 +485,18 @@ export default function CommunicationPage() {
             />
           </>
         ) : (
-          <div className="flex-1 flex-col items-center justify-center text-gray-400 p-8 hidden md:flex">
-            <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-              <MessageSquare className="h-12 w-12 text-gray-300" />
+          <div className="flex-1 flex-col items-center justify-center text-gray-400 p-8 hidden md:flex bg-gradient-to-br from-gray-50 to-white">
+            <div className="w-24 h-24 bg-gradient-to-br from-primary/10 to-blue-50 rounded-full flex items-center justify-center mb-4 shadow-sm">
+              <MessageSquare className="h-12 w-12 text-primary" />
             </div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">Your Messages</h3>
-            <p className="text-center max-w-sm">
+            <h3 className="text-2xl font-bold text-gray-900 mb-2">Your Messages</h3>
+            <p className="text-center max-w-sm text-gray-600 leading-relaxed">
               Select a conversation from the sidebar to start messaging with clients or freelancers.
             </p>
+            <div className="mt-6 text-sm text-gray-500 flex items-center gap-2">
+              <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+              Real-time messaging enabled
+            </div>
           </div>
         )}
       </div>

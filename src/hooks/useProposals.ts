@@ -19,7 +19,11 @@ export function useProposals(filters?: {
       if (filters?.freelancerId) params.append('freelancerId', filters.freelancerId);
       if (filters?.status) params.append('status', filters.status);
 
-      const response = await fetch(`/api/proposals?${params.toString()}`);
+      const response = await fetch(`/api/proposals?${params.toString()}`, {
+        credentials: 'include'
+      });
+        credentials: 'include'
+      });
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.error || 'Failed to fetch proposals');
@@ -49,6 +53,7 @@ export function useCreateProposal() {
       const response = await fetch('/api/proposals', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(proposalData),
       });
 
@@ -87,6 +92,7 @@ export function useUpdateProposalStatus() {
       const response = await fetch(`/api/proposals/${proposalId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ status }),
       });
 

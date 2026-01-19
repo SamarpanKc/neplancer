@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Manrope } from 'next/font/google';
@@ -16,7 +16,7 @@ const manrope = Manrope({
 
 export default function LoginPage() {
   const router = useRouter();
-  const { signIn, isLoading } = useAuth();
+  const { signIn, isLoading, user } = useAuth();
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -25,6 +25,18 @@ export default function LoginPage() {
   const [emailError, setEmailError] = useState('');
   const [emailTouched, setEmailTouched] = useState(false);
   const [isEmailValid, setIsEmailValid] = useState(false);
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (user) {
+      // Check if user is admin and redirect with hard navigation
+      if (user.is_admin) {
+        window.location.href = '/admin/dashboard';
+      } else {
+        window.location.href = '/dashboard';
+      }
+    }
+  }, [user]);
 
   // Real-time email validation
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -110,13 +122,19 @@ export default function LoginPage() {
     }
 
     try {
-      await signIn(formData.email.toLowerCase().trim(), formData.password);
+      const loggedInUser = await signIn(formData.email.toLowerCase().trim(), formData.password);
       
       toast.success('Login successful! Welcome back.');
       
-      // Redirect to dashboard (you can customize based on role later)
-      router.push('/dashboard');
-      router.refresh();
+      // Small delay to ensure state is updated
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Redirect based on user role with hard navigation
+      if (loggedInUser?.is_admin) {
+        window.location.href = '/admin/dashboard';
+      } else {
+        window.location.href = '/dashboard';
+      }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Login failed. Please check your credentials.';
       setError(errorMessage);
@@ -225,7 +243,7 @@ export default function LoginPage() {
           <p className="mt-6 text-center text-sm text-gray-600">
             Don&apos;t have an account?{' '}
             <Link href="/register" className="font-semibold text-gray-900 hover:text-gray-700 underline">
-              Sign in
+              Sign Up
             </Link>
           </p>
         </div>

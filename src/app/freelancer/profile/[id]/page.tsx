@@ -22,6 +22,7 @@ import {
 import { Freelancer, PortfolioItem, Review } from '@/types';
 import { demoApi } from '@/lib/demoApi';
 import { getCurrentUser } from '@/lib/auth';
+import { findSimilarFreelancers, RankedFreelancer } from '@/lib/recommendation';
 
 export default function FreelancerProfilePage() {
   const params = useParams();
@@ -31,7 +32,7 @@ export default function FreelancerProfilePage() {
   const [freelancer, setFreelancer] = useState<Freelancer | null>(null);
   const [portfolio, setPortfolio] = useState<PortfolioItem[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
-  const [similarFreelancers, setSimilarFreelancers] = useState<Freelancer[]>([]);
+  const [similarFreelancers, setSimilarFreelancers] = useState<RankedFreelancer[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSaved, setIsSaved] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'portfolio' | 'reviews'>('overview');
@@ -62,14 +63,8 @@ export default function FreelancerProfilePage() {
       const reviewsData = await demoApi.getFreelancerReviews(freelancerId);
       setReviews(reviewsData);
 
-      // Load similar freelancers (same category)
-      const allFreelancers = await demoApi.getAllFreelancers();
-      const similar = allFreelancers
-        .filter((f: Freelancer) => 
-          f.id !== freelancerId && 
-          f.category === freelancerData.category
-        )
-        .slice(0, 3);
+      // Load similar freelancers using recommendation system
+      const similar = await findSimilarFreelancers(freelancerId, { limit: 3 });
       setSimilarFreelancers(similar);
 
       // Check if saved
@@ -254,7 +249,7 @@ export default function FreelancerProfilePage() {
                       <DollarSign className="h-5 w-5 mr-2 text-green-600" />
                       <span className="text-sm">Hourly Rate</span>
                     </div>
-                    <span className="font-semibold text-gray-900">₹{freelancer.hourlyRate}/hr</span>
+                    <span className="font-semibold text-gray-900">${freelancer.hourlyRate}/hr</span>
                   </div>
 
                   <div className="flex items-center justify-between">
@@ -270,7 +265,7 @@ export default function FreelancerProfilePage() {
                       <TrendingUp className="h-5 w-5 mr-2 text-purple-600" />
                       <span className="text-sm">Total Earned</span>
                     </div>
-                    <span className="font-semibold text-gray-900">₹{(freelancer.totalEarnings || 0).toLocaleString()}</span>
+                    <span className="font-semibold text-gray-900">${(freelancer.totalEarnings || 0).toLocaleString()}</span>
                   </div>
 
                   <div className="flex items-center justify-between">
@@ -556,7 +551,7 @@ export default function FreelancerProfilePage() {
                 <div className="flex items-center justify-between mb-6">
                   <h2 className="text-xl font-bold text-gray-900">Similar Freelancers</h2>
                   <button
-                    onClick={() => router.push(`/search/freelancers?category=${freelancer.category}`)}
+                    onClick={() => router.push(`/search/freelancers`)}
                     className="text-primary hover:text-primary/80 text-sm font-medium"
                   >
                     View All
@@ -564,29 +559,44 @@ export default function FreelancerProfilePage() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {similarFreelancers.map((similar) => (
-                    <div
-                      key={similar.id}
-                      onClick={() => router.push(`/freelancer/profile/${similar.id}`)}
-                      className="border border-gray-200 rounded-xl p-4 hover:shadow-lg transition-shadow cursor-pointer"
-                    >
-                      <div className="text-center">
-                        <img
-                          src={similar.avatar}
-                          alt={similar.name}
-                          className="w-20 h-20 rounded-full mx-auto mb-3"
-                        />
-                        <h3 className="font-semibold text-gray-900 mb-1">{similar.name}</h3>
-                        <p className="text-sm text-gray-600 mb-2">{similar.title}</p>
-                        <div className="flex items-center justify-center mb-2">
-                          <Star className="h-4 w-4 fill-yellow-400 text-yellow-400 mr-1" />
-                          <span className="text-sm font-medium">{similar.rating}</span>
-                          <span className="text-sm text-gray-500 ml-1">({similar.reviews})</span>
+                  {similarFreelancers.map((similar) => {
+                    const profile = similar.profiles;
+                    const name = profile?.full_name || 'Unknown';
+                    const avatar = profile?.avatar_url || `https://i.pravatar.cc/150?img=${Math.floor(Math.random() * 70)}`;
+                    
+                    return (
+                      <div
+                        key={similar.id}
+                        onClick={() => router.push(`/freelancer/profile/${similar.id}`)}
+                        className="border border-gray-200 rounded-xl p-4 hover:shadow-lg transition-shadow cursor-pointer relative"
+                      >
+                        {/* Similarity Badge */}
+                        {similar.score && (
+                          <div className="absolute top-2 right-2">
+                            <div className="bg-[#0CF574]/10 text-[#0CF574] px-2 py-1 rounded-md text-xs font-bold">
+                              {Math.round(similar.score.finalScore)}% Similar
+                            </div>
+                          </div>
+                        )}
+                        
+                        <div className="text-center pt-4">
+                          <img
+                            src={avatar}
+                            alt={name}
+                            className="w-20 h-20 rounded-full mx-auto mb-3 object-cover"
+                          />
+                          <h3 className="font-semibold text-gray-900 mb-1">{name}</h3>
+                          <p className="text-sm text-gray-600 mb-2">{similar.title || 'Freelancer'}</p>
+                          <div className="flex items-center justify-center mb-2">
+                            <Star className="h-4 w-4 fill-yellow-400 text-yellow-400 mr-1" />
+                            <span className="text-sm font-medium">{(similar.rating || 0).toFixed(1)}</span>
+                            <span className="text-sm text-gray-500 ml-1">({similar.completed_jobs || 0})</span>
+                          </div>
+                          <p className="text-sm font-semibold text-gray-900">${(similar.hourly_rate || 0).toLocaleString()}/hr</p>
                         </div>
-                        <p className="text-sm font-semibold text-gray-900">₹{similar.hourlyRate}/hr</p>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}

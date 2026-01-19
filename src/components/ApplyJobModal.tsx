@@ -102,7 +102,7 @@ export default function ApplyJobModal({
             <div className="flex items-center gap-2 text-gray-700">
               <DollarSign className="h-5 w-5 text-green-600" />
               <span className="font-semibold">Client Budget:</span>
-              <span>₹{job.budget.toLocaleString()}</span>
+              <span>${job.budget.toLocaleString()}</span>
             </div>
             <div className="flex flex-wrap gap-2 mt-2">
               {job.skills.map((skill, index) => (
@@ -138,7 +138,7 @@ export default function ApplyJobModal({
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               <DollarSign className="h-4 w-4 inline mr-1" />
-              Your Proposed Budget (₹) <span className="text-red-500">*</span>
+              Your Proposed Budget ($) <span className="text-red-500">*</span>
             </label>
             <input
               type="number"

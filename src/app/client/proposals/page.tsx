@@ -87,7 +87,9 @@ export default function ClientProposalsPage() {
   const fetchProposals = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/proposals');
+      const response = await fetch('/api/proposals', {
+        credentials: 'include'
+      });
       const data = await response.json();
 
       if (!response.ok) {
@@ -110,7 +112,7 @@ export default function ClientProposalsPage() {
   };
 
   const handleApprove = async (proposalId: string) => {
-    if (!confirm('Are you sure you want to accept this proposal? This will notify the freelancer.')) {
+    if (!confirm('Are you sure you want to accept this proposal? You will be redirected to create a contract.')) {
       return;
     }
 
@@ -128,12 +130,15 @@ export default function ClientProposalsPage() {
         throw new Error(data.error || 'Failed to accept proposal');
       }
 
-      toast.success('Proposal accepted! The freelancer has been notified.');
-      fetchProposals();
+      toast.success('Proposal accepted! Redirecting to create contract...');
+      
+      // Redirect to contract creation page with proposal details
+      setTimeout(() => {
+        router.push(`/client/contracts/create?proposal=${proposalId}`);
+      }, 1500);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to accept proposal';
       toast.error(errorMessage);
-    } finally {
       setProcessingProposal(null);
     }
   };
@@ -283,7 +288,7 @@ export default function ClientProposalsPage() {
                   <div className="flex items-center gap-4 mt-2 text-sm text-gray-600">
                     <span className="flex items-center gap-1">
                       <DollarSign className="h-4 w-4" />
-                      Budget: ₹{job.budget.toLocaleString()}
+                      Budget: ${job.budget.toLocaleString()}
                     </span>
                     <span className="flex items-center gap-1">
                       <Briefcase className="h-4 w-4" />
@@ -342,7 +347,7 @@ export default function ClientProposalsPage() {
                               <div className="flex items-center gap-2 text-sm">
                                 <DollarSign className="h-4 w-4 text-green-600" />
                                 <span className="font-semibold text-gray-900">
-                                  ₹{proposal.proposed_budget.toLocaleString()}
+                                  ${proposal.proposed_budget.toLocaleString()}
                                 </span>
                                 <span className="text-gray-500">proposed</span>
                               </div>
@@ -359,7 +364,7 @@ export default function ClientProposalsPage() {
                               <div className="flex items-center gap-2 text-sm">
                                 <Award className="h-4 w-4 text-purple-600" />
                                 <span className="text-gray-700">
-                                  ₹{proposal.freelancers.hourly_rate}/hr
+                                  ${proposal.freelancers.hourly_rate}/hr
                                 </span>
                               </div>
                             </div>

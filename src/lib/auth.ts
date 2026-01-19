@@ -1,6 +1,7 @@
 // lib/auth.ts
 import { supabase } from './supabase';
 import type { User } from '@/types';
+import { sendEmail, getWelcomeEmail, getEmailVerificationEmail } from './email';
 
 // --------------------
 // SIGN UP WITH PROFILE CREATION
@@ -22,10 +23,17 @@ export async function signUp(data: {
   website?: string;
   location?: string;
 }) {
-  // 1. Create auth user
+  // 1. Create auth user with email confirmation
   const { data: authData, error: authError } = await supabase.auth.signUp({
     email: data.email,
     password: data.password,
+    options: {
+      emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/auth/callback`,
+      data: {
+        full_name: data.fullName,
+        role: data.role,
+      },
+    },
   });
 
   if (authError || !authData.user) {
@@ -84,6 +92,16 @@ export async function signUp(data: {
       }
     }
 
+    // 4. Send welcome email (don't block on this)
+    try {
+      const welcomeEmail = getWelcomeEmail(data.fullName, data.email);
+      await sendEmail(welcomeEmail);
+      console.log('✅ Welcome email sent to:', data.email);
+    } catch (emailError) {
+      console.error('⚠️ Failed to send welcome email:', emailError);
+      // Don't throw - email failure shouldn't block registration
+    }
+
     return authData;
   } catch (error) {
     // Rollback: delete auth user if profile creation fails
@@ -112,8 +130,11 @@ export async function signIn(email: string, password: string) {
 // SIGN OUT
 // --------------------
 export async function signOut() {
-  const { error } = await supabase.auth.signOut();
+  const { error } = await supabase.auth.signOut({
+    scope: 'global' // Sign out from all sessions
+  });
   if (error) {
+    console.error('Sign out error:', error);
     throw error;
   }
 }
@@ -168,6 +189,8 @@ export async function getCurrentUser(): Promise<User | null> {
     name: profile.full_name,
     avatarUrl: profile.avatar_url,
     profile_completed: profile.profile_completed,
+    is_admin: profile.is_admin || false,
+    admin_level: profile.admin_level,
     stats,
   } as User;
 }

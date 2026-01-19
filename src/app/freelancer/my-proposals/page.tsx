@@ -203,7 +203,7 @@ export default function MyProposalsPage() {
                     <p className="text-sm text-gray-600 mb-1">Your Bid</p>
                     <p className="text-lg font-semibold text-gray-900 flex items-center gap-1">
                       <DollarSign className="w-4 h-4" />
-                      ₹{proposal.proposed_budget?.toLocaleString() || 'N/A'}
+                      ${proposal.proposed_budget?.toLocaleString() || 'N/A'}
                     </p>
                   </div>
                   <div>
@@ -216,7 +216,7 @@ export default function MyProposalsPage() {
                     <p className="text-sm text-gray-600 mb-1">Client's Budget</p>
                     <p className="text-lg font-semibold text-gray-900 flex items-center gap-1">
                       <DollarSign className="w-4 h-4" />
-                      ₹{proposal.jobs?.budget?.toLocaleString() || 'N/A'}
+                      ${proposal.jobs?.budget?.toLocaleString() || 'N/A'}
                     </p>
                   </div>
                 </div>

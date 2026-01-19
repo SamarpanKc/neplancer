@@ -90,8 +90,12 @@ export default function PostJobPage() {
       setError('Job description must be at least 50 characters');
       return;
     }
-    if (!formData.budget || parseFloat(formData.budget) <= 0) {
-      setError('Please enter a valid budget');
+    if (!formData.budget || parseFloat(formData.budget) < 16) {
+      setError('Minimum budget is $16');
+      return;
+    }
+    if (parseFloat(formData.budget) > 99999) {
+      setError('Maximum budget is $99,999');
       return;
     }
     if (!formData.category) {
@@ -226,7 +230,7 @@ export default function PostJobPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Budget (NPR) *
+                  Budget (USD) *
                 </label>
                 <div className="relative">
                   <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -235,11 +239,13 @@ export default function PostJobPage() {
                     value={formData.budget}
                     onChange={(e) => setFormData({ ...formData, budget: e.target.value })}
                     className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0CF574]"
-                    placeholder="50000"
-                    min="0"
-                    step="1000"
+                    placeholder="16"
+                    min="16"
+                    max="99999"
+                    step="1"
                   />
                 </div>
+                <p className="mt-1 text-xs text-gray-500">Budget range: $16 - $99,999</p>
               </div>
 
               <div>

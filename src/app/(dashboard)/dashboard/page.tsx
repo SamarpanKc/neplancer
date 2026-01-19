@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { getCurrentUser } from '@/lib/auth';
 import FreelancerDashboard from '@/app/components/FreelancerDashboard/page';
@@ -11,8 +11,12 @@ export default function DashboardPage() {
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const initialized = useRef(false);
 
   useEffect(() => {
+    // Prevent re-initialization on tab visibility changes
+    if (initialized.current) return;
+    
     const initDashboard = async () => {
       const user = await getCurrentUser();
       if (!user) {
@@ -21,10 +25,11 @@ export default function DashboardPage() {
       }
       setCurrentUser(user);
       setLoading(false);
+      initialized.current = true;
     };
 
     initDashboard();
-  }, [router]);
+  }, []);
 
   useEffect(() => {
     if (!currentUser || loading) return;

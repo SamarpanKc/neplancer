@@ -79,6 +79,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
     const clientId = searchParams.get('clientId');
+    const freelancerId = searchParams.get('freelancerId');
 
     let query = supabase
       .from('jobs')
@@ -101,6 +102,27 @@ export async function GET(request: NextRequest) {
         { error: error.message },
         { status: 500 }
       );
+    }
+
+    // If freelancerId is provided, check which jobs they've already applied to
+    if (freelancerId && data) {
+      const jobIds = data.map(job => job.id);
+      
+      const { data: proposals } = await supabase
+        .from('proposals')
+        .select('job_id')
+        .eq('freelancer_id', freelancerId)
+        .in('job_id', jobIds);
+
+      const appliedJobIds = new Set(proposals?.map(p => p.job_id) || []);
+      
+      // Add hasApplied flag to each job
+      const jobsWithAppliedStatus = data.map(job => ({
+        ...job,
+        hasApplied: appliedJobIds.has(job.id)
+      }));
+
+      return NextResponse.json({ jobs: jobsWithAppliedStatus });
     }
 
     return NextResponse.json({ jobs: data });

@@ -497,7 +497,7 @@ export default function RegisterFreelancerPage() {
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Hourly Rate (NPR) *
+                    Hourly Rate (USD) *
                   </label>
                   <input
                     type="number"
@@ -508,7 +508,7 @@ export default function RegisterFreelancerPage() {
                     min="0"
                     step="100"
                   />
-                  <p className="mt-1 text-sm text-gray-500">Average rate in Nepal: NPR 1,500 - 3,500/hour</p>
+                  <p className="mt-1 text-sm text-gray-500">Average rate: $15 - $35/hour</p>
                 </div>
 
                 <div>
@@ -582,7 +582,7 @@ export default function RegisterFreelancerPage() {
                     </div>
                     <div>
                       <span className="text-sm text-gray-600">Hourly Rate:</span>
-                      <p className="font-semibold">NPR {formData.hourlyRate}/hour</p>
+                      <p className="font-semibold">${formData.hourlyRate}/hour</p>
                     </div>
                     <div>
                       <span className="text-sm text-gray-600">Skills:</span>

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { Send, Loader2, Check, CheckCheck, FileText, Clock, DollarSign, CheckCircle, XCircle, Briefcase, FileSignature } from 'lucide-react';
+import { Send, Loader2, Check, CheckCheck, FileText, Clock, DollarSign, CheckCircle, XCircle, Briefcase, FileSignature, MessageSquare } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 import Image from 'next/image';
@@ -29,6 +29,17 @@ interface ProposalData {
   budget?: string;
   duration?: string;
   coverLetter?: string;
+}
+
+interface ContractData {
+  isContract: boolean;
+  contractId?: string;
+  title?: string;
+  type?: string;
+  amount?: string;
+  hourlyRate?: string;
+  estimatedHours?: string;
+  summary?: string;
 }
 
 interface ChatBoxProps {
@@ -68,7 +79,7 @@ export default function ChatBox({
 
     const proposalIdMatch = content.match(/View full proposal: \/client\/proposals\/([a-f0-9-]+)/);
     const jobTitleMatch = content.match(/job: \*\*(.+?)\*\*/);
-    const budgetMatch = content.match(/\*\*Proposed Budget:\*\* NPR ([\d,]+)/);
+    const budgetMatch = content.match(/\*\*Proposed Budget:\*\* \$([\d,]+)/);
     const durationMatch = content.match(/\*\*Estimated Duration:\*\* (.+?)\n/);
     const coverLetterMatch = content.match(/\*\*Cover Letter:\*\*[\s\S]*?([\s\S]+?)\n\nView full proposal:/);
 
@@ -79,6 +90,32 @@ export default function ChatBox({
       budget: budgetMatch?.[1],
       duration: durationMatch?.[1],
       coverLetter: coverLetterMatch?.[1],
+    };
+  };
+
+  // Parse contract message to extract data
+  const parseContractMessage = (content: string): ContractData => {
+    if (!content.includes('📄 **New Contract:')) {
+      return { isContract: false };
+    }
+
+    const contractIdMatch = content.match(/\[View Full Contract & Sign\]\(\/contracts\/([a-f0-9-]+)\)/);
+    const titleMatch = content.match(/📄 \*\*New Contract: (.+?)\*\*/);
+    const typeMatch = content.match(/💼 \*\*Type:\*\* (.+?)\n/);
+    const amountMatch = content.match(/💰 \*\*Amount:\*\* \$([\d,]+)/);
+    const hourlyRateMatch = content.match(/⏱️ \*\*Hourly Rate:\*\* \$([\d,]+)\/hr/);
+    const hoursMatch = content.match(/📅 \*\*Estimated Hours:\*\* ([\d]+) hrs/);
+    const summaryMatch = content.match(/📋 \*\*Summary:\*\* (.+?)(?:\n\n|$)/s);
+
+    return {
+      isContract: true,
+      contractId: contractIdMatch?.[1],
+      title: titleMatch?.[1],
+      type: typeMatch?.[1],
+      amount: amountMatch?.[1],
+      hourlyRate: hourlyRateMatch?.[1],
+      estimatedHours: hoursMatch?.[1],
+      summary: summaryMatch?.[1]?.trim(),
     };
   };
 
@@ -350,38 +387,38 @@ export default function ChatBox({
   }
 
   return (
-    <div className="flex flex-col h-full bg-white rounded-lg shadow-sm">
+    <div className="flex flex-col h-full bg-white">
       {/* Chat Header */}
-      <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
-        <div className="flex items-center gap-3">
-          <div className="relative">
+      <div className="px-4 md:px-6 py-3 md:py-4 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white shadow-sm">
+        <div className="flex items-center gap-2 md:gap-3">
+          <div className="relative flex-shrink-0">
             {recipientAvatar ? (
               <Image
                 src={recipientAvatar}
                 alt={recipientName}
                 width={40}
                 height={40}
-                className="h-10 w-10 rounded-full object-cover"
+                className="h-9 w-9 md:h-10 md:w-10 rounded-full object-cover ring-2 ring-white shadow-sm"
               />
             ) : (
-              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                <span className="text-primary font-semibold">
+              <div className="h-9 w-9 md:h-10 md:w-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center ring-2 ring-white shadow-sm">
+                <span className="text-primary font-bold text-sm md:text-base">
                   {recipientName.charAt(0).toUpperCase()}
                 </span>
               </div>
             )}
             {/* Online Status Indicator */}
             {isOnline && (
-              <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></span>
+              <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-white rounded-full shadow-sm"></span>
             )}
           </div>
-          <div>
-            <h3 className="font-semibold text-gray-900">{recipientName}</h3>
-            <p className="text-xs text-gray-500">
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-gray-900 text-sm md:text-base truncate">{recipientName}</h3>
+            <p className="text-[10px] md:text-xs text-gray-500">
               {isOnline ? (
-                <span className="flex items-center gap-1">
-                  <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                  Online
+                <span className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
+                  Active now
                 </span>
               ) : (
                 'Offline'
@@ -394,13 +431,16 @@ export default function ChatBox({
       {/* Messages Container */}
       <div
         ref={messagesContainerRef}
-        className="flex-1 overflow-y-auto p-6 space-y-4"
+        className="flex-1 overflow-y-auto p-3 md:p-4 lg:p-6 space-y-3 md:space-y-4 bg-gradient-to-b from-gray-50/30 to-white"
       >
         {messages.length === 0 ? (
           <div className="flex items-center justify-center h-full">
-            <div className="text-center">
-              <p className="text-gray-500 mb-2">No messages yet</p>
-              <p className="text-sm text-gray-400">
+            <div className="text-center p-6">
+              <div className="w-16 h-16 md:w-20 md:h-20 bg-gradient-to-br from-primary/10 to-blue-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                <MessageSquare className="h-8 w-8 md:h-10 md:w-10 text-primary" />
+              </div>
+              <p className="text-gray-600 font-medium mb-1">No messages yet</p>
+              <p className="text-xs md:text-sm text-gray-400">
                 Start the conversation by sending a message
               </p>
             </div>
@@ -416,6 +456,115 @@ export default function ChatBox({
               });
 
               const proposalData = parseProposalMessage(message.content);
+              const contractData = parseContractMessage(message.content);
+
+              // Render contract message with special UI
+              if (contractData.isContract) {
+                return (
+                  <div key={message.id} className="w-full">
+                    <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border-2 border-emerald-200 rounded-xl p-6 shadow-md">
+                      {/* Contract Header */}
+                      <div className="flex items-start gap-3 mb-4">
+                        <div className="p-2 bg-emerald-500 rounded-lg">
+                          <FileSignature className="h-6 w-6 text-white" />
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="font-bold text-lg text-gray-900 mb-1">
+                            🎉 New Contract Received!
+                          </h3>
+                          <p className="text-sm text-gray-600">
+                            {isOwn ? 'You' : message.sender?.full_name || 'Client'} sent you a contract
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Contract Title */}
+                      {contractData.title && (
+                        <div className="mb-4 p-3 bg-white rounded-lg border border-emerald-100">
+                          <div className="flex items-center gap-2 text-gray-700">
+                            <Briefcase className="h-4 w-4 text-emerald-500" />
+                            <span className="font-bold text-base">{contractData.title}</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Contract Details */}
+                      <div className="grid grid-cols-2 gap-3 mb-4">
+                        {contractData.type && (
+                          <div className="p-3 bg-white rounded-lg border border-emerald-100">
+                            <div className="flex items-center gap-2 mb-1">
+                              <FileText className="h-4 w-4 text-blue-600" />
+                              <span className="text-xs font-semibold text-gray-600">Type</span>
+                            </div>
+                            <p className="text-sm font-bold text-gray-900">
+                              {contractData.type}
+                            </p>
+                          </div>
+                        )}
+                        {contractData.amount && (
+                          <div className="p-3 bg-white rounded-lg border border-emerald-100">
+                            <div className="flex items-center gap-2 mb-1">
+                              <DollarSign className="h-4 w-4 text-green-600" />
+                              <span className="text-xs font-semibold text-gray-600">Amount</span>
+                            </div>
+                            <p className="text-lg font-bold text-gray-900">
+                              ${contractData.amount}
+                            </p>
+                          </div>
+                        )}
+                        {contractData.hourlyRate && (
+                          <div className="p-3 bg-white rounded-lg border border-emerald-100">
+                            <div className="flex items-center gap-2 mb-1">
+                              <Clock className="h-4 w-4 text-blue-600" />
+                              <span className="text-xs font-semibold text-gray-600">Hourly Rate</span>
+                            </div>
+                            <p className="text-sm font-bold text-gray-900">
+                              ${contractData.hourlyRate}/hr
+                            </p>
+                          </div>
+                        )}
+                        {contractData.estimatedHours && (
+                          <div className="p-3 bg-white rounded-lg border border-emerald-100">
+                            <div className="flex items-center gap-2 mb-1">
+                              <Clock className="h-4 w-4 text-orange-600" />
+                              <span className="text-xs font-semibold text-gray-600">Est. Hours</span>
+                            </div>
+                            <p className="text-sm font-bold text-gray-900">
+                              {contractData.estimatedHours} hrs
+                            </p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Summary */}
+                      {contractData.summary && (
+                        <div className="mb-4 p-4 bg-white rounded-lg border border-emerald-100">
+                          <p className="text-xs font-semibold text-gray-600 mb-2">📋 Summary</p>
+                          <p className="text-sm text-gray-700">
+                            {contractData.summary}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* View Contract Button */}
+                      {contractData.contractId && (
+                        <button
+                          onClick={() => router.push(`/contracts/${contractData.contractId}`)}
+                          className="w-full py-3 px-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold rounded-lg transition-all flex items-center justify-center gap-2 shadow-md hover:shadow-lg"
+                        >
+                          <FileSignature className="h-5 w-5" />
+                          <span>View Contract & Sign</span>
+                        </button>
+                      )}
+
+                      {/* Timestamp */}
+                      <div className="mt-4 pt-3 border-t border-emerald-200">
+                        <p className="text-xs text-gray-500">{timeString}</p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
 
               // Render proposal message with special UI
               if (proposalData.isProposal && !isOwn) {
@@ -457,7 +606,7 @@ export default function ChatBox({
                               <span className="text-xs font-semibold text-gray-600">Budget</span>
                             </div>
                             <p className="text-lg font-bold text-gray-900">
-                              NPR {proposalData.budget}
+                              ${proposalData.budget}
                             </p>
                           </div>
                         )}
@@ -544,32 +693,49 @@ export default function ChatBox({
                           </div>
                         </div>
                       ) : (
-                        <div className="flex gap-3">
-                          <button
-                            onClick={() => handleApproveProposal(proposalData.proposalId!)}
-                            disabled={processingProposal === proposalData.proposalId}
-                            className="flex-1 py-3 px-4 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg"
-                          >
-                            {processingProposal === proposalData.proposalId ? (
-                              <Loader2 className="h-5 w-5 animate-spin" />
-                            ) : (
-                              <>
-                                <CheckCircle className="h-5 w-5" />
-                                <span>Approve & Create Contract</span>
-                              </>
-                            )}
-                          </button>
-                          <button
-                            onClick={() => handleRejectProposal(proposalData.proposalId!)}
-                            disabled={processingProposal === proposalData.proposalId}
-                            className="py-3 px-4 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg"
-                          >
-                            {processingProposal === proposalData.proposalId ? (
-                              <Loader2 className="h-5 w-5 animate-spin" />
-                            ) : (
-                              <XCircle className="h-5 w-5" />
-                            )}
-                          </button>
+                        <div className="space-y-3">
+                          {/* View Full Proposal Button */}
+                          {proposalData.proposalId && (
+                            <button
+                              onClick={() => router.push(`/client/proposals/${proposalData.proposalId}`)}
+                              className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 shadow-md hover:shadow-lg"
+                            >
+                              <FileText className="h-5 w-5" />
+                              <span>View Full Proposal Details</span>
+                            </button>
+                          )}
+                          
+                          {/* Action Buttons */}
+                          <div className="flex gap-3">
+                            <button
+                              onClick={() => handleApproveProposal(proposalData.proposalId!)}
+                              disabled={processingProposal === proposalData.proposalId}
+                              className="flex-1 py-3 px-4 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg"
+                            >
+                              {processingProposal === proposalData.proposalId ? (
+                                <Loader2 className="h-5 w-5 animate-spin" />
+                              ) : (
+                                <>
+                                  <CheckCircle className="h-5 w-5" />
+                                  <span>Accept</span>
+                                </>
+                              )}
+                            </button>
+                            <button
+                              onClick={() => handleRejectProposal(proposalData.proposalId!)}
+                              disabled={processingProposal === proposalData.proposalId}
+                              className="py-3 px-4 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg"
+                            >
+                              {processingProposal === proposalData.proposalId ? (
+                                <Loader2 className="h-5 w-5 animate-spin" />
+                              ) : (
+                                <>
+                                  <XCircle className="h-5 w-5" />
+                                  <span>Decline</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
                         </div>
                       )}
 
@@ -586,29 +752,29 @@ export default function ChatBox({
               return (
                 <div
                   key={message.id}
-                  className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}
+                  className={`flex ${isOwn ? 'justify-end' : 'justify-start'} animate-fadeIn`}
                 >
                   <div
-                    className={`max-w-[70%] ${
+                    className={`max-w-[85%] md:max-w-[70%] ${
                       isOwn
-                        ? 'bg-primary text-white'
-                        : 'bg-gray-100 text-gray-900'
-                    } rounded-lg px-4 py-2 shadow-sm`}
+                        ? 'bg-gradient-to-br from-primary to-blue-600 text-white shadow-md'
+                        : 'bg-white text-gray-900 shadow-sm border border-gray-100'
+                    } rounded-2xl px-3 md:px-4 py-2 md:py-2.5`}
                   >
                     {!isOwn && message.sender && (
-                      <p className="text-xs font-semibold mb-1 opacity-70">
+                      <p className="text-[10px] md:text-xs font-semibold mb-1 text-gray-600">
                         {message.sender.full_name}
                       </p>
                     )}
-                    <p className="text-sm whitespace-pre-wrap break-words">
+                    <p className="text-xs md:text-sm whitespace-pre-wrap break-words leading-relaxed">
                       {message.content}
                     </p>
                     <div
-                      className={`flex items-center gap-1 mt-1 ${
-                        isOwn ? 'text-white/70' : 'text-gray-500'
+                      className={`flex items-center gap-1 mt-1.5 ${
+                        isOwn ? 'text-white/80' : 'text-gray-400'
                       }`}
                     >
-                      <span className="text-xs">{timeString}</span>
+                      <span className="text-[10px] md:text-xs font-medium">{timeString}</span>
                       {isOwn && (
                         <span className="ml-1">
                           {message.read ? (
@@ -629,20 +795,20 @@ export default function ChatBox({
       </div>
 
       {/* Message Input */}
-      <form onSubmit={sendMessage} className="px-6 py-4 border-t border-gray-200">
+      <form onSubmit={sendMessage} className="px-3 md:px-4 lg:px-6 py-3 md:py-4 border-t border-gray-200 bg-white shadow-sm">
         <div className="flex gap-2">
           <input
             type="text"
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             placeholder="Type your message..."
-            className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+            className="flex-1 px-3 md:px-4 py-2.5 md:py-3 text-sm border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent bg-gray-50 transition-all"
             disabled={sending}
           />
           <button
             type="submit"
             disabled={sending || !newMessage.trim()}
-            className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            className="px-4 md:px-6 py-2.5 md:py-3 bg-gradient-to-r from-primary to-blue-600 text-white rounded-xl hover:shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 font-medium"
           >
             {sending ? (
               <Loader2 className="h-5 w-5 animate-spin" />

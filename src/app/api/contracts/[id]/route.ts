@@ -19,7 +19,7 @@ export async function GET(
 
     const { id } = params;
 
-    const { data: contract, error } = await supabase
+        const { data: contract, error } = await supabase
       .from('contracts')
       .select(`
         *,
@@ -32,21 +32,21 @@ export async function GET(
         ),
         client:client_id (
           id,
-          full_name,
-          avatar_url,
-          email
+          profile_id,
+          profiles!clients_profile_id_fkey (
+            full_name,
+            avatar_url,
+            email
+          )
         ),
         freelancer:freelancer_id (
           id,
-          full_name,
-          avatar_url,
-          email
-        ),
-        proposal:proposal_id (
-          id,
-          cover_letter,
-          proposed_budget,
-          estimated_duration
+          profile_id,
+          profiles!freelancers_profile_id_fkey (
+            full_name,
+            avatar_url,
+            email
+          )
         )
       `)
       .eq('id', id)
@@ -59,8 +59,24 @@ export async function GET(
       );
     }
 
+    // Get client and freelancer IDs to verify access
+    const { data: clientData } = await supabase
+      .from('clients')
+      .select('id')
+      .eq('profile_id', user.id)
+      .single();
+
+    const { data: freelancerData } = await supabase
+      .from('freelancers')
+      .select('id')
+      .eq('profile_id', user.id)
+      .single();
+
+    const isClient = clientData && contract.client_id === clientData.id;
+    const isFreelancer = freelancerData && contract.freelancer_id === freelancerData.id;
+
     // Verify user is part of the contract
-    if (contract.client_id !== user.id && contract.freelancer_id !== user.id) {
+    if (!isClient && !isFreelancer) {
       return NextResponse.json(
         { error: 'Unauthorized to view this contract' },
         { status: 403 }
@@ -113,7 +129,7 @@ export async function PATCH(
     // Get the contract
     const { data: contract, error: fetchError } = await supabase
       .from('contracts')
-      .select('*, client:client_id(full_name), freelancer:freelancer_id(full_name)')
+      .select('*, client:client_id(id, full_name, profile_id), freelancer:freelancer_id(id, full_name, profile_id)')
       .eq('id', id)
       .single();
 
@@ -124,8 +140,24 @@ export async function PATCH(
       );
     }
 
+    // Get client and freelancer IDs to verify access
+    const { data: clientData } = await supabase
+      .from('clients')
+      .select('id')
+      .eq('profile_id', user.id)
+      .single();
+
+    const { data: freelancerData } = await supabase
+      .from('freelancers')
+      .select('id')
+      .eq('profile_id', user.id)
+      .single();
+
+    const isClient = clientData && contract.client_id === clientData.id;
+    const isFreelancer = freelancerData && contract.freelancer_id === freelancerData.id;
+
     // Verify user is part of the contract
-    if (contract.client_id !== user.id && contract.freelancer_id !== user.id) {
+    if (!isClient && !isFreelancer) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 403 }
@@ -138,10 +170,10 @@ export async function PATCH(
 
     // Handle signing
     if (action === 'sign') {
-      if (user.id === contract.client_id) {
+      if (isClient) {
         updateData.client_signed_at = new Date().toISOString();
         updateData.client_signature = signature || `Signed by ${contract.client.full_name}`;
-      } else if (user.id === contract.freelancer_id) {
+      } else if (isFreelancer) {
         updateData.freelancer_signed_at = new Date().toISOString();
         updateData.freelancer_signature = signature || `Signed by ${contract.freelancer.full_name}`;
         
@@ -167,14 +199,14 @@ export async function PATCH(
       }
 
       // Send notification to the other party
-      const recipientId = user.id === contract.client_id ? contract.freelancer_id : contract.client_id;
-      const signerName = user.id === contract.client_id ? contract.client.full_name : contract.freelancer.full_name;
+      const recipientProfileId = isClient ? contract.freelancer.profile_id : contract.client.profile_id;
+      const signerName = isClient ? contract.client.full_name : contract.freelancer.full_name;
       
       // If contract is now active, notify both parties
       if (updatedContract.status === 'active') {
         // Notify client
         await supabase.from('notifications').insert({
-          user_id: contract.client_id,
+          user_id: contract.client.profile_id,
           type: 'contract_active',
           title: 'Contract Activated! ✅',
           message: `The contract "${contract.title}" is now active. Work can begin!`,
@@ -184,7 +216,7 @@ export async function PATCH(
 
         // Notify freelancer
         await supabase.from('notifications').insert({
-          user_id: contract.freelancer_id,
+          user_id: contract.freelancer.profile_id,
           type: 'contract_active',
           title: 'Contract Activated! ✅',
           message: `The contract "${contract.title}" is now active. You can start working!`,
@@ -194,7 +226,7 @@ export async function PATCH(
       } else {
         // Just notify about the signature
         await supabase.from('notifications').insert({
-          user_id: recipientId,
+          user_id: recipientProfileId,
           type: 'contract_signed',
           title: 'Contract Signed 📝',
           message: `${signerName} has signed the contract "${contract.title}". Please sign to activate.`,
@@ -239,7 +271,7 @@ export async function PATCH(
       }
 
       // Notify both parties
-      const recipientId = user.id === contract.client_id ? contract.freelancer_id : contract.client_id;
+      const recipientProfileId = isClient ? contract.freelancer.profile_id : contract.client.profile_id;
       const notificationMessage = status === 'completed'
         ? `The contract "${contract.title}" has been marked as completed.`
         : status === 'cancelled'
@@ -247,7 +279,7 @@ export async function PATCH(
         : `The contract "${contract.title}" status has been updated.`;
 
       await supabase.from('notifications').insert({
-        user_id: recipientId,
+        user_id: recipientProfileId,
         type: `contract_${status}`,
         title: `Contract ${status.charAt(0).toUpperCase() + status.slice(1)}`,
         message: notificationMessage,

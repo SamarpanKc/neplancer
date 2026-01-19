@@ -133,7 +133,7 @@ export default function ClientDashboard() {
           </div>
           <h3 className="text-gray-600 text-sm font-medium mb-1">Total Spent</h3>
           <p className="text-2xl font-bold text-gray-900">
-            NPR {stats.totalSpent.toLocaleString()}
+            ${stats.totalSpent.toLocaleString()}
           </p>
           <p className="text-xs text-gray-500 mt-2">On {stats.completedProjects} projects</p>
         </div>
@@ -235,7 +235,7 @@ export default function ClientDashboard() {
                         <div className="flex items-center gap-4 text-sm text-gray-600">
                           <span className="flex items-center gap-1">
                             <DollarSign className="w-4 h-4" />
-                            NPR {job.budget.toLocaleString()}
+                            ${job.budget.toLocaleString()}
                           </span>
                           <span className="flex items-center gap-1">
                             <Eye className="w-4 h-4" />

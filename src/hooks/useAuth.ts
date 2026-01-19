@@ -13,6 +13,8 @@ interface User {
   name?: string;
   avatarUrl?: string;
   profile_completed?: boolean;
+  is_admin?: boolean;
+  admin_level?: string;
   stats?: {
     // Freelancer stats
     completedJobs?: number;
@@ -49,7 +51,7 @@ interface AuthState {
   isInitialized: boolean;
   
   // Actions
-  signIn: (email: string, password: string) => Promise<void>;
+  signIn: (email: string, password: string) => Promise<User | null>;
   signUp: (data: SignUpData) => Promise<void>;
   signOut: () => Promise<void>;
   initialize: () => Promise<void>;
@@ -70,8 +72,10 @@ export const useAuth = create<AuthState>()(
           const user = await auth.getCurrentUser();
           set({ 
             user: user as User, 
-            isLoading: false 
+            isLoading: false,
+            isInitialized: true
           });
+          return user;
         } catch (error) {
           set({ isLoading: false });
           throw error;
@@ -81,12 +85,35 @@ export const useAuth = create<AuthState>()(
       signUp: async (data: SignUpData) => {
         set({ isLoading: true });
         try {
-          await auth.signUp(data);
-          const user = await auth.getCurrentUser();
-          set({ 
-            user: user as User, 
-            isLoading: false 
+          const response = await fetch('/api/auth/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
           });
+
+          const result = await response.json();
+
+          if (!response.ok) {
+            throw new Error(result.error || 'Registration failed');
+          }
+
+          // Store email for verification resend if needed
+          if (result.emailConfirmationRequired) {
+            localStorage.setItem('pendingVerificationEmail', data.email);
+          }
+
+          // If session exists, get user data
+          if (result.session) {
+            const user = await auth.getCurrentUser();
+            set({ 
+              user: user as User, 
+              isLoading: false 
+            });
+          } else {
+            set({ isLoading: false });
+          }
+
+          return result;
         } catch (error) {
           set({ isLoading: false });
           throw error;
@@ -97,12 +124,25 @@ export const useAuth = create<AuthState>()(
         set({ isLoading: true });
         try {
           await auth.signOut();
+          // Clear user state
           set({ 
             user: null, 
-            isLoading: false 
+            isLoading: false,
+            isInitialized: true
           });
+          // Clear persisted storage
+          localStorage.removeItem('auth-storage');
+          // Clear any pending verification email
+          localStorage.removeItem('pendingVerificationEmail');
         } catch (error) {
-          set({ isLoading: false });
+          console.error('Sign out error:', error);
+          // Force clear state even on error
+          set({ 
+            user: null, 
+            isLoading: false,
+            isInitialized: true
+          });
+          localStorage.removeItem('auth-storage');
           throw error;
         }
       },
@@ -143,3 +183,4 @@ export const useAuthUser = () => useAuth((state) => state.user);
 export const useIsAuthenticated = () => useAuth((state) => !!state.user);
 export const useIsClient = () => useAuth((state) => state.user?.role === 'client');
 export const useIsFreelancer = () => useAuth((state) => state.user?.role === 'freelancer');
+export const useIsAdmin = () => useAuth((state) => state.user?.is_admin === true);

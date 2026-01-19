@@ -287,7 +287,7 @@ export default function ClientJobsPage() {
                 <div className="flex flex-wrap gap-4 mb-4">
                   <div className="flex items-center gap-2 text-gray-600">
                     <DollarSign className="w-4 h-4" />
-                    <span className="font-semibold">NPR {job.budget.toLocaleString()}</span>
+                    <span className="font-semibold">${job.budget.toLocaleString()}</span>
                   </div>
                   <div className="flex items-center gap-2 text-gray-600">
                     <Tag className="w-4 h-4" />

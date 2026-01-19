@@ -66,14 +66,20 @@ export default function BrowseJobsPage() {
         }
       }
       
-      // Load jobs after user verification
-      await loadJobs();
       loadSavedJobs();
     }
     
     initializeUser();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Load jobs when freelancerId is available
+  useEffect(() => {
+    if (freelancerId) {
+      loadJobs();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [freelancerId]);
 
   useEffect(() => {
     filterJobs();
@@ -84,8 +90,12 @@ export default function BrowseJobsPage() {
     try {
       setLoading(true);
 
-      // Fetch jobs through API route (consistent with client jobs page)
-      const response = await fetch('/api/jobs?status=open');
+      // Fetch jobs through API route - include freelancerId if available to check applied status
+      const url = freelancerId 
+        ? `/api/jobs?status=open&freelancerId=${freelancerId}`
+        : '/api/jobs?status=open';
+      
+      const response = await fetch(url);
       
       if (!response.ok) {
         throw new Error('Failed to fetch jobs');
@@ -115,6 +125,7 @@ export default function BrowseJobsPage() {
         createdAt: new Date(job.createdAt || job.created_at),
         deadline: job.deadline ? new Date(job.deadline) : undefined,
         clientId: job.clientId || job.client_id,
+        hasApplied: job.hasApplied || false,
         client: job.client ? {
           id: job.client.id,
           name: job.client.name,
@@ -208,6 +219,7 @@ export default function BrowseJobsPage() {
   const handleApplyJob = async (proposalData: any) => {
     try {
       const response = await fetch('/api/proposals', {
+        credentials: 'include',
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -278,7 +290,7 @@ export default function BrowseJobsPage() {
   };
 
   const formatBudget = (budget: number) => {
-    return `₹${budget.toLocaleString()}`;
+    return `$${budget.toLocaleString()}`;
   };
 
   const getTimeAgo = (date: Date) => {
@@ -528,14 +540,20 @@ export default function BrowseJobsPage() {
 
                   {/* Action Buttons */}
                   <div className="flex gap-3 mt-6 pt-6 border-t border-gray-200">
-                    <button
-                      onClick={() => setSelectedJobForApply(job)}
-                      disabled={!freelancerId}
-                      className="flex-1 px-6 py-3 bg-primary text-gray-100 rounded-lg hover:bg-primary/90 transition-colors font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      Apply Now
-                      <ArrowRight className="h-5 w-5" />
-                    </button>
+                    {!job.hasApplied ? (
+                      <button
+                        onClick={() => setSelectedJobForApply(job)}
+                        disabled={!freelancerId}
+                        className="flex-1 px-6 py-3 bg-primary text-gray-100 rounded-lg hover:bg-primary/90 transition-colors font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Apply Now
+                        <ArrowRight className="h-5 w-5" />
+                      </button>
+                    ) : (
+                      <div className="flex-1 px-6 py-3 bg-green-50 text-green-700 rounded-lg border border-green-200 font-semibold flex items-center justify-center gap-2">
+                        ✓ Applied
+                      </div>
+                    )}
                     <button
                       onClick={() => handleMessageClient(job)}
                       className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium flex items-center gap-2"

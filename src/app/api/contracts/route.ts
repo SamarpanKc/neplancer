@@ -17,6 +17,36 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
 
+    // Get client ID if user is a client
+    const { data: clientData } = await supabase
+      .from('clients')
+      .select('id')
+      .eq('profile_id', user.id)
+      .single();
+
+    // Get freelancer ID if user is a freelancer
+    const { data: freelancerData } = await supabase
+      .from('freelancers')
+      .select('id')
+      .eq('profile_id', user.id)
+      .single();
+
+    if (!clientData && !freelancerData) {
+      return NextResponse.json(
+        { error: 'User is neither a client nor a freelancer' },
+        { status: 403 }
+      );
+    }
+
+    // Build filter conditions based on user role
+    const conditions: string[] = [];
+    if (clientData) {
+      conditions.push(`client_id.eq.${clientData.id}`);
+    }
+    if (freelancerData) {
+      conditions.push(`freelancer_id.eq.${freelancerData.id}`);
+    }
+
     let query = supabase
       .from('contracts')
       .select(`
@@ -28,21 +58,22 @@ export async function GET(request: Request) {
         ),
         client:client_id (
           id,
-          full_name,
-          avatar_url
+          profile_id,
+          profiles!clients_profile_id_fkey (
+            full_name,
+            avatar_url
+          )
         ),
         freelancer:freelancer_id (
           id,
-          full_name,
-          avatar_url
-        ),
-        proposal:proposal_id (
-          id,
-          proposed_budget,
-          estimated_duration
+          profile_id,
+          profiles!freelancers_profile_id_fkey (
+            full_name,
+            avatar_url
+          )
         )
       `)
-      .or(`client_id.eq.${user.id},freelancer_id.eq.${user.id}`)
+      .or(conditions.join(','))
       .order('created_at', { ascending: false });
 
     if (status) {
@@ -59,7 +90,7 @@ export async function GET(request: Request) {
       );
     }
 
-    return NextResponse.json({ contracts });
+    return NextResponse.json({ contracts: contracts || [] });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Failed to fetch contracts';
     console.error('Error fetching contracts:', error);
@@ -128,36 +159,63 @@ export async function POST(request: Request) {
       );
     }
 
-    // Get freelancer profile_id (freelancer_id might be from freelancers table)
+    // Get client ID from clients table (not user.id directly)
+    const { data: clientData, error: clientError } = await supabase
+      .from('clients')
+      .select('id')
+      .eq('profile_id', user.id)
+      .single();
+
+    if (clientError || !clientData) {
+      console.error('❌ Client not found for profile_id:', user.id);
+      return NextResponse.json(
+        { error: 'Client profile not found. Please complete your client profile first.' },
+        { status: 404 }
+      );
+    }
+
+    // Validate freelancer exists in freelancers table
     const { data: freelancerData, error: freelancerError } = await supabase
       .from('freelancers')
-      .select('profile_id, profiles:profile_id(full_name)')
+      .select('id, profile_id, profiles:profile_id(full_name)')
       .eq('id', freelancer_id)
       .single();
 
     if (freelancerError || !freelancerData) {
+      console.error('❌ Freelancer not found:', freelancer_id);
       return NextResponse.json(
         { error: 'Freelancer not found' },
         { status: 404 }
       );
     }
 
-    const freelancerProfileId = freelancerData.profile_id;
-
     // Create the contract
+    const contractData: any = {
+      proposal_id,
+      job_id,
+      client_id: clientData.id,
+      freelancer_id: freelancerData.id,
+      title,
+      total_amount: parseFloat(total_amount),
+      status: 'pending',
+      created_at: new Date().toISOString(),
+    };
+
+    // Add optional fields only if they exist
+    if (description) contractData.description = description;
+    if (contract_type) contractData.contract_type = contract_type;
+    if (hourly_rate) contractData.hourly_rate = parseFloat(hourly_rate);
+    if (start_date) contractData.start_date = start_date;
+    if (end_date) contractData.end_date = end_date;
+    if (estimated_hours) contractData.estimated_hours = estimated_hours;
+    if (terms) contractData.terms = terms;
+    if (deliverables) contractData.deliverables = deliverables;
+    if (payment_terms) contractData.payment_terms = payment_terms;
+    if (custom_fields) contractData.custom_fields = custom_fields;
+
     const { data: contract, error: contractError } = await supabase
       .from('contracts')
-      .insert({
-        proposal_id,
-        job_id,
-        client_id: user.id,
-        freelancer_id: freelancerProfileId,
-        title,
-        description,
-        total_amount: parseFloat(total_amount),
-        status: 'pending',
-        created_at: new Date().toISOString(),
-      })
+      .insert(contractData)
       .select()
       .single();
 
@@ -186,15 +244,18 @@ export async function POST(request: Request) {
 
       if (milestonesError) {
         console.error('Error creating milestones:', milestonesError);
-        // Don't fail the request
       }
     }
 
     // Send contract to freelancer's messages
+    const freelancerProfileId = freelancerData.profile_id;
+    
+    // Find or create conversation
+    const participantCondition = `and(participant_1_id.eq.${user.id},participant_2_id.eq.${freelancerProfileId}),and(participant_1_id.eq.${freelancerProfileId},participant_2_id.eq.${user.id})`;
     const { data: conversation } = await supabase
       .from('conversations')
       .select('id')
-      .or(`and(participant_1_id.eq.${user.id},participant_2_id.eq.${freelancerProfileId}),and(participant_1_id.eq.${freelancerProfileId},participant_2_id.eq.${user.id})`)
+      .or(participantCondition)
       .maybeSingle();
 
     let conversationId = conversation?.id;
@@ -223,16 +284,24 @@ export async function POST(request: Request) {
 
     // Send contract message
     if (conversationId) {
-      const contractMessage = `📄 **Contract Received**\n\n` +
-        `**${title}**\n\n` +
-        `${description || ''}\n\n` +
-        `**Type:** ${contract_type.replace('_', ' ').toUpperCase()}\n` +
-        `**Amount:** NPR ${total_amount}\n` +
-        `${hourly_rate ? `**Hourly Rate:** NPR ${hourly_rate}/hr\n` : ''}` +
-        `${estimated_hours ? `**Estimated Hours:** ${estimated_hours} hrs\n` : ''}` +
-        `\n**Terms:** ${terms || 'See contract details'}\n` +
-        `\nPlease review and sign the contract to proceed.\n` +
-        `View Contract: /contracts/${contract.id}`;
+      // Truncate description if too long for better readability
+      const shortDescription = description && description.length > 100 
+        ? description.substring(0, 100) + '...' 
+        : description || 'No description provided';
+      
+      const contractMessage = `📄 **New Contract: ${title}**
+
+💼 **Type:** ${(contract_type || '').replace('_', ' ').toUpperCase()}
+💰 **Amount:** $${total_amount}${hourly_rate ? `\n⏱️ **Hourly Rate:** $${hourly_rate}/hr` : ''}${estimated_hours ? `\n📅 **Estimated Hours:** ${estimated_hours} hrs` : ''}
+
+📋 **Summary:** ${shortDescription}
+
+✅ **Next Steps:**
+1. Review the full contract details
+2. Sign the contract to accept
+3. Start working on the project
+
+👉 [View Full Contract & Sign](/contracts/${contract.id})`;
 
       await supabase
         .from('messages')
@@ -245,7 +314,7 @@ export async function POST(request: Request) {
     }
 
     // Create notification for freelancer
-    const { error: notificationError } = await supabase
+    await supabase
       .from('notifications')
       .insert({
         user_id: freelancerProfileId,
@@ -257,13 +326,10 @@ export async function POST(request: Request) {
         created_at: new Date().toISOString(),
       });
 
-    if (notificationError) {
-      console.error('Error creating notification:', notificationError);
-    }
-
     return NextResponse.json({ 
       success: true, 
       contract,
+      conversationId,
       message: 'Contract created and sent to freelancer!'
     });
   } catch (error) {

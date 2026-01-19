@@ -108,9 +108,9 @@ export default function FreelancerDashboard() {
           </div>
           <h3 className="text-gray-600 text-sm font-medium mb-1">Total Earnings</h3>
           <p className="text-2xl font-bold text-gray-900">
-            NPR {stats.totalEarnings.toLocaleString()}
+            ${stats.totalEarnings.toLocaleString()}
           </p>
-          <p className="text-xs text-gray-500 mt-2">+NPR 15,000 this month</p>
+          <p className="text-xs text-gray-500 mt-2">+$1,500 this month</p>
         </div>
 
         {/* Active Projects */}
@@ -226,7 +226,7 @@ export default function FreelancerDashboard() {
                         <div className="flex items-center gap-4 text-sm text-gray-600">
                           <span className="flex items-center gap-1">
                             <DollarSign className="w-4 h-4" />
-                            NPR {contract.totalAmount.toLocaleString()}
+                            ${contract.totalAmount.toLocaleString()}
                           </span>
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                             contract.status === 'active' ? 'bg-green-50 text-green-700' :

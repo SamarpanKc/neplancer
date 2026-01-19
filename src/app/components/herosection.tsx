@@ -4,7 +4,7 @@ import { Manrope } from "next/font/google";
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { FreelancerCard } from './FreelancerCard';
-import { freelancersData } from '@/data/freelancers';
+import { rankAllFreelancers, RankedFreelancer } from '@/lib/recommendation';
 import Link from 'next/link';
 import { 
   Search, 
@@ -30,7 +30,7 @@ const stats = [
   { label: 'Active Freelancers', value: '10,000+', icon: Users },
   { label: 'Projects Completed', value: '25,000+', icon: Briefcase },
   { label: 'Client Satisfaction', value: '98%', icon: Star },
-  { label: 'Money Paid Out', value: '₹50Cr+', icon: DollarSign },
+  { label: 'Money Paid Out', value: '$50M+', icon: DollarSign },
 ];
 
 // Categories data
@@ -72,11 +72,34 @@ const HeroSection = () => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<'hire' | 'get-hired'>('hire');
   const [searchQuery, setSearchQuery] = useState('');
+  const [topFreelancers, setTopFreelancers] = useState<RankedFreelancer[]>([]);
+  const [loadingFreelancers, setLoadingFreelancers] = useState(true);
 
   // Derived auth state
   const isAuthenticated = !!user;
   const isClient = user?.role === 'client';
   const isFreelancer = user?.role === 'freelancer';
+
+  // Load top freelancers using recommendation system
+  useEffect(() => {
+    const loadTopFreelancers = async () => {
+      try {
+        setLoadingFreelancers(true);
+        const ranked = await rankAllFreelancers({ 
+          limit: 8, 
+          minRating: 4.0,
+          availableOnly: false 
+        });
+        setTopFreelancers(ranked);
+      } catch (error) {
+        console.error('Error loading top freelancers:', error);
+      } finally {
+        setLoadingFreelancers(false);
+      }
+    };
+    
+    loadTopFreelancers();
+  }, []);
 
   const handleTabChange = (tab: 'hire' | 'get-hired') => {
     setActiveTab(tab);
@@ -294,17 +317,41 @@ const HeroSection = () => {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {freelancersData.slice(0, 8).map((freelancer) => (
-                <FreelancerCard
-                  key={freelancer.id}
-                  name={freelancer.name}
-                  username={freelancer.username}
-                  avatar={freelancer.avatar}
-                  status={freelancer.status}
-                  skills={freelancer.skills}
-                  rating={freelancer.rating}
-                />
-              ))}
+              {loadingFreelancers ? (
+                // Loading skeleton
+                Array.from({ length: 8 }).map((_, idx) => (
+                  <div key={idx} className="bg-white rounded-xl p-4 animate-pulse">
+                    <div className="w-full h-40 bg-gray-200 rounded-lg mb-3"></div>
+                    <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                    <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+                  </div>
+                ))
+              ) : topFreelancers.length > 0 ? (
+                topFreelancers.map((freelancer) => {
+                  const profile = freelancer.profiles;
+                  return (
+                    <FreelancerCard
+                      key={freelancer.id}
+                      name={profile?.full_name || 'Unknown'}
+                      username={`@${freelancer.username}`}
+                      avatar={profile?.avatar_url || `https://i.pravatar.cc/150?img=${Math.floor(Math.random() * 70)}`}
+                      status="online"
+                      skills={freelancer.skills || []}
+                      rating={freelancer.rating || 0}
+                    />
+                  );
+                })
+              ) : (
+                <div className="col-span-4 text-center py-12">
+                  <p className="text-gray-600">No freelancers available at the moment.</p>
+                  <button 
+                    onClick={() => router.push('/register-freelancer')}
+                    className="mt-4 px-6 py-2 bg-gray-900 text-white rounded-lg hover:bg-black"
+                  >
+                    Become a Freelancer
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </section>

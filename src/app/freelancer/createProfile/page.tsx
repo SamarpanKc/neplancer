@@ -144,6 +144,18 @@ export default function FreelancerProfileSetup() {
       // Refresh auth state to get updated profile_completed flag
       await initialize();
       
+      // Send profile completion email notification
+      try {
+        await fetch('/api/auth/profile-completed', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        console.log('✅ Profile completion email sent');
+      } catch (emailError) {
+        console.error('⚠️ Failed to send profile completion email:', emailError);
+        // Don't block on email failure
+      }
+      
       setSuccess(true);
       
       // Redirect to dashboard after 1.5 seconds
@@ -292,7 +304,7 @@ export default function FreelancerProfileSetup() {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               <DollarSign className="w-4 h-4 inline mr-1" />
-              Hourly Rate (NPR) <span className="text-red-500">*</span>
+              Hourly Rate (USD) <span className="text-red-500">*</span>
             </label>
             <input
               type="number"

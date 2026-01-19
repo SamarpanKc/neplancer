@@ -61,10 +61,20 @@ const Navbar = () => {
     };
   }, [showUserMenu]);
 
-  const handleLogout = () => {
-    signOut();
-    setShowUserMenu(false);
-    router.push('/');
+  const handleLogout = async () => {
+    try {
+      setShowUserMenu(false);
+      await signOut();
+      // Small delay to ensure state is cleared
+      await new Promise(resolve => setTimeout(resolve, 100));
+      router.push('/');
+      // Force a hard refresh to clear all client-side state
+      window.location.href = '/';
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Even if there's an error, try to navigate away
+      router.push('/');
+    }
   };
 
   const independentsContent = {

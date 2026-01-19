@@ -8,6 +8,8 @@ export interface User {
   fullName?: string;
   role: 'client' | 'freelancer';
   profile_completed?: boolean;
+  is_admin?: boolean;
+  admin_level?: string;
   avatar?: string;
   avatarUrl?: string;
   createdAt?: Date;
@@ -68,6 +70,7 @@ export interface Job {
   createdAt: Date;
   deadline?: Date;
   proposalsCount?: number;
+  hasApplied?: boolean;
 }
 
 // Proposal Types

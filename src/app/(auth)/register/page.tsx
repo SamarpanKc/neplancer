@@ -148,7 +148,7 @@ export default function RegisterPage() {
     }
 
     try {
-      await signUp({
+      const response = await signUp({
         email: formData.email.toLowerCase().trim(),
         password: formData.password,
         fullName: formData.fullName.trim(),
@@ -157,9 +157,18 @@ export default function RegisterPage() {
         clientType: formData.role === 'client' ? formData.clientType : undefined,
       });
 
-      toast.success('Registration successful! Welcome to NepLancer.');
-      // Redirect to dashboard (it will redirect to profile creation if needed)
-      router.push('/dashboard');
+      // Check if email confirmation is required
+      if (response && 'emailConfirmationRequired' in response && response.emailConfirmationRequired) {
+        toast.success('Registration successful! Please check your email to verify your account.', {
+          duration: 6000,
+        });
+        // Redirect to a confirmation page or stay on the same page
+        router.push('/auth/verify-email');
+      } else {
+        toast.success('Registration successful! Welcome to NepLancer.');
+        // Redirect to dashboard (it will redirect to profile creation if needed)
+        router.push('/dashboard');
+      }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Registration failed. Please try again.';
       setError(errorMessage);
