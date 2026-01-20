@@ -8,7 +8,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { validateEmail, signUpSchema } from '@/lib/validations';
 import { AlertCircle, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
-
+import {sendEmail,verificationEmail} from '@/components/mailer';
 const manrope = Manrope({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
@@ -146,7 +146,7 @@ export default function RegisterPage() {
       toast.error('Username must be at least 3 characters');
       return;
     }
-
+    
     try {
       const response = await signUp({
         email: formData.email.toLowerCase().trim(),
@@ -156,6 +156,10 @@ export default function RegisterPage() {
         username: formData.role === 'freelancer' ? formData.username : undefined,
         clientType: formData.role === 'client' ? formData.clientType : undefined,
       });
+            const verificationLink = `{process.env.NEXT_PUBLIC_BASE_URL}/client/dashboard`;
+      
+            const html = verificationEmail(formData.fullName, verificationLink);
+            await sendEmail(formData.email, 'Verify your NepLancer account', html);
 
       // Check if email confirmation is required
       if (response && 'emailConfirmationRequired' in response && response.emailConfirmationRequired) {

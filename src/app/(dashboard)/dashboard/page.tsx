@@ -51,7 +51,7 @@ export default function DashboardPage() {
       </div>
     );
   }
-
+  
   // Show appropriate dashboard based on role
   if (currentUser?.role === 'freelancer' && currentUser.profile_completed) {
     return <FreelancerDashboard />;
