@@ -33,7 +33,7 @@ export async function GET(req: Request) {
 
   // 4️⃣ Update user to verified
   const { error: updateError } = await supabase
-    .from('users')
+    .from('profiles')
     .update({ is_verified: true })
     .eq('id', data.user_id);
 
