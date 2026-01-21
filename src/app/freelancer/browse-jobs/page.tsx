@@ -18,10 +18,22 @@ import {
 import { Job } from '@/types';
 import { getCurrentUser } from '@/lib/auth';
 import ApplyJobModal from '@/components/ApplyJobModal';
+import ProfileGateModal from '@/components/ProfileGateModal';
+import WelcomeBanner from '@/components/WelcomeBanner';
+import { useProfileGate } from '@/hooks/useProfileGate';
 import { toast } from 'sonner';
 
 export default function BrowseJobsPage() {
   const router = useRouter();
+  const { 
+    user, 
+    gateOpen, 
+    gateType, 
+    returnUrl, 
+    closeGate, 
+    requireProfileCompletion,
+    requireBankDetails 
+  } = useProfileGate();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [filteredJobs, setFilteredJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
@@ -542,7 +554,18 @@ export default function BrowseJobsPage() {
                   <div className="flex gap-3 mt-6 pt-6 border-t border-gray-200">
                     {!job.hasApplied ? (
                       <button
-                        onClick={() => setSelectedJobForApply(job)}
+                        onClick={() => {
+                          // First check profile completion
+                          if (!requireProfileCompletion(`/freelancer/browse-jobs?jobId=${job.id}`)) {
+                            return;
+                          }
+                          // Then check bank details
+                          if (!requireBankDetails(`/freelancer/browse-jobs?jobId=${job.id}`)) {
+                            return;
+                          }
+                          // If both checks pass, open apply modal
+                          setSelectedJobForApply(job);
+                        }}
                         disabled={!freelancerId}
                         className="flex-1 px-6 py-3 bg-primary text-gray-100 rounded-lg hover:bg-primary/90 transition-colors font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
@@ -600,6 +623,15 @@ export default function BrowseJobsPage() {
           onSubmit={handleApplyJob}
         />
       )}
+
+      {/* Profile Gate Modal */}
+      <ProfileGateModal
+        isOpen={gateOpen}
+        onClose={closeGate}
+        type={gateType}
+        role="freelancer"
+        returnTo={returnUrl}
+      />
     </div>
   );
 } 

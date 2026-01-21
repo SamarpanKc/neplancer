@@ -33,8 +33,20 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  webpack: (config, { isServer }) => {
+    // Exclude Node.js built-in modules from client bundle
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        net: false,
+        tls: false,
+        child_process: false,
+        'node:child_process': false,
+      };
+    }
+    return config;
+  },
 };
-
-export default nextConfig;
 
 export default nextConfig;

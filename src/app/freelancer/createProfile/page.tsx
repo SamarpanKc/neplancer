@@ -137,15 +137,27 @@ export default function FreelancerProfileSetup() {
     }
     
     setSubmitting(true);
+    console.log('📝 Starting profile submission...');
     
     try {
+      console.log('📤 Submitting freelancer data:', {
+        username: formData.username,
+        title: formData.title,
+        hourlyRate: formData.hourlyRate,
+        skills: formData.skills
+      });
+      
       await updateFreelancer(formData);
+      console.log('✅ Profile updated successfully');
       
       // Refresh auth state to get updated profile_completed flag
+      console.log('🔄 Refreshing auth state...');
       await initialize();
+      console.log('✅ Auth state refreshed');
       
       // Send profile completion email notification
       try {
+        console.log('📧 Sending profile completion email...');
         await fetch('/api/auth/profile-completed', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -157,16 +169,28 @@ export default function FreelancerProfileSetup() {
       }
       
       setSuccess(true);
+      console.log('✅ Profile creation complete, redirecting...');
       
-      // Redirect to dashboard after 1.5 seconds
+      // Check if there's a return URL from gate interceptor
+      const returnAfterGate = localStorage.getItem('returnAfterGate');
+      const redirectUrl = returnAfterGate || '/dashboard';
+      
+      // Clear the return URL
+      if (returnAfterGate) {
+        localStorage.removeItem('returnAfterGate');
+      }
+      
+      // Redirect after 1.5 seconds
       setTimeout(() => {
-        router.push('/dashboard');
+        router.push(redirectUrl);
       }, 1500);
     } catch (error) {
-      console.error('Error saving profile:', error);
-      alert(error instanceof Error ? error.message : 'Failed to save profile. Please try again.');
+      console.error('❌ Error saving profile:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to save profile. Please try again.';
+      alert(errorMessage);
     } finally {
       setSubmitting(false);
+      console.log('✅ Submission process complete');
     }
   };
 

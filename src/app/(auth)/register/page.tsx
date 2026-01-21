@@ -8,7 +8,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { validateEmail, signUpSchema } from '@/lib/validations';
 import { AlertCircle, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
-import {sendEmail,verificationEmail} from '@/components/mailer';
+
 const manrope = Manrope({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
@@ -156,10 +156,6 @@ export default function RegisterPage() {
         username: formData.role === 'freelancer' ? formData.username : undefined,
         clientType: formData.role === 'client' ? formData.clientType : undefined,
       });
-            const verificationLink = `{process.env.NEXT_PUBLIC_BASE_URL}/client/dashboard`;
-      
-            const html = verificationEmail(formData.fullName, verificationLink);
-            await sendEmail(formData.email, 'Verify your NepLancer account', html);
 
       // Check if email confirmation is required
       if (response && 'emailConfirmationRequired' in response && response.emailConfirmationRequired) {
@@ -169,9 +165,21 @@ export default function RegisterPage() {
         // Redirect to a confirmation page or stay on the same page
         router.push('/auth/verify-email');
       } else {
-        toast.success('Registration successful! Welcome to NepLancer.');
-        // Redirect to dashboard (it will redirect to profile creation if needed)
-        router.push('/dashboard');
+        // Redirect based on role after successful signup
+        const redirectUrl = formData.role === 'freelancer' 
+          ? '/freelancer/browse-jobs' 
+          : '/client/post-job';
+        
+        // Set first-time user flag
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem('firstTimeUser', 'true');
+        }
+        
+        toast.success(`Welcome to NepLancer! Let's get started.`, {
+          duration: 4000,
+        });
+        
+        router.push(redirectUrl);
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Registration failed. Please try again.';

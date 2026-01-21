@@ -92,7 +92,7 @@ interface Contract {
 }
 
 export default function AdminDashboard() {
-  const { user } = useAuth();
+  const { user, isLoading: authLoading, isInitialized } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<AdminStats | null>(null);
@@ -125,17 +125,28 @@ export default function AdminDashboard() {
     // Only run access check once
     if (accessChecked.current) return;
     
+    // Wait for auth to finish loading AND initializing before checking
+    if (authLoading || !isInitialized) {
+      console.log('🔄 Admin Dashboard: Waiting for auth to initialize...', { authLoading, isInitialized });
+      return;
+    }
+    
+    console.log('🔍 Admin Dashboard: Checking auth state...', { user: user?.email, isAdmin: user?.is_admin });
+    
     if (!user) {
+      console.log('❌ Admin Dashboard: No user, redirecting to login');
       router.push('/login');
       return;
     }
 
     if (!user.is_admin) {
+      console.log('❌ Admin Dashboard: User not admin, redirecting to dashboard');
       toast.error('Admin access required');
       router.push('/dashboard');
       return;
     }
 
+    console.log('✅ Admin Dashboard: Access granted, fetching data...');
     accessChecked.current = true;
     
     // Fetch data only once after access is verified
@@ -143,7 +154,7 @@ export default function AdminDashboard() {
       fetchDashboardData();
       initialized.current = true;
     }
-  }, [user]);
+  }, [user, authLoading, isInitialized, router]);
 
   const fetchDashboardData = async () => {
     try {
@@ -339,12 +350,14 @@ export default function AdminDashboard() {
     // Implement CSV export logic here
   };
 
-  if (loading) {
+  if (loading || authLoading || !isInitialized) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading dashboard...</p>
+          <p className="mt-4 text-gray-600">
+            {!isInitialized ? 'Initializing...' : authLoading ? 'Checking authentication...' : 'Loading dashboard...'}
+          </p>
         </div>
       </div>
     );

@@ -16,7 +16,7 @@ const manrope = Manrope({
 
 export default function LoginPage() {
   const router = useRouter();
-  const { signIn, isLoading, user } = useAuth();
+  const { signIn, isLoading, user, isInitialized } = useAuth();
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -28,7 +28,16 @@ export default function LoginPage() {
 
   // Redirect if already logged in
   useEffect(() => {
+    // Wait for auth to finish loading AND initializing before checking
+    if (isLoading || !isInitialized) {
+      console.log('🔄 Login: Waiting for auth to initialize...', { isLoading, isInitialized });
+      return;
+    }
+    
+    console.log('🔍 Login: Checking if user is authenticated...', { user: user?.email });
+    
     if (user) {
+      console.log('✅ Login: User authenticated, redirecting...', { isAdmin: user.is_admin });
       // Check if user is admin and redirect with hard navigation
       if (user.is_admin) {
         window.location.href = '/admin/dashboard';
@@ -36,7 +45,7 @@ export default function LoginPage() {
         window.location.href = '/dashboard';
       }
     }
-  }, [user]);
+  }, [user, isLoading, isInitialized]);
 
   // Real-time email validation
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -137,8 +146,18 @@ export default function LoginPage() {
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Login failed. Please check your credentials.';
-      setError(errorMessage);
-      toast.error(errorMessage);
+      
+      // Check if it's an email verification issue
+      if (errorMessage.includes('Email not confirmed') || errorMessage.includes('email') && errorMessage.includes('confirm')) {
+        setError('Please verify your email address before logging in. Check your inbox for the verification link.');
+        toast.error('Email verification required. Please check your inbox.');
+      } else if (errorMessage.includes('Invalid login credentials')) {
+        setError('Invalid email or password. If you just registered, please verify your email first.');
+        toast.error('Invalid credentials. Did you verify your email?');
+      } else {
+        setError(errorMessage);
+        toast.error(errorMessage);
+      }
     }
   };
 

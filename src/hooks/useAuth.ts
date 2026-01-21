@@ -13,6 +13,7 @@ interface User {
   name?: string;
   avatarUrl?: string;
   profile_completed?: boolean;
+  bank_details_completed?: boolean;
   is_admin?: boolean;
   admin_level?: string;
   stats?: {
@@ -123,17 +124,41 @@ export const useAuth = create<AuthState>()(
       signOut: async () => {
         set({ isLoading: true });
         try {
+          // Call the logout API endpoint to clear server-side cookies
+          await fetch('/api/auth/logout', {
+            method: 'POST',
+            credentials: 'include',
+          });
+          
+          // Also call the auth signOut
           await auth.signOut();
+          
           // Clear user state
           set({ 
             user: null, 
             isLoading: false,
             isInitialized: true
           });
-          // Clear persisted storage
-          localStorage.removeItem('auth-storage');
-          // Clear any pending verification email
-          localStorage.removeItem('pendingVerificationEmail');
+          
+          // Clear all local storage
+          if (typeof localStorage !== 'undefined') {
+            localStorage.removeItem('auth-storage');
+            localStorage.removeItem('pendingVerificationEmail');
+            // Clear any other Supabase-related items
+            const keysToRemove = [];
+            for (let i = 0; i < localStorage.length; i++) {
+              const key = localStorage.key(i);
+              if (key && (key.includes('supabase') || key.includes('sb-'))) {
+                keysToRemove.push(key);
+              }
+            }
+            keysToRemove.forEach(key => localStorage.removeItem(key));
+          }
+          
+          // Force a page reload to clear all client-side state
+          if (typeof window !== 'undefined') {
+            window.location.href = '/';
+          }
         } catch (error) {
           console.error('Sign out error:', error);
           // Force clear state even on error
@@ -142,8 +167,13 @@ export const useAuth = create<AuthState>()(
             isLoading: false,
             isInitialized: true
           });
-          localStorage.removeItem('auth-storage');
-          throw error;
+          if (typeof localStorage !== 'undefined') {
+            localStorage.clear();
+          }
+          // Force reload even on error
+          if (typeof window !== 'undefined') {
+            window.location.href = '/';
+          }
         }
       },
 

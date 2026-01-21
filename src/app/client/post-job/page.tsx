@@ -4,6 +4,9 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Manrope } from 'next/font/google';
 import { useAuth } from '@/hooks/useAuth';
+import { useProfileGate } from '@/hooks/useProfileGate';
+import ProfileGateModal from '@/components/ProfileGateModal';
+import WelcomeBanner from '@/components/WelcomeBanner';
 import { Briefcase, DollarSign, Calendar, Tag, CheckCircle2 } from 'lucide-react';
 
 const manrope = Manrope({
@@ -34,6 +37,14 @@ const POPULAR_SKILLS = [
 export default function PostJobPage() {
   const router = useRouter();
   const { user, isLoading: authLoading } = useAuth();
+  const { 
+    gateOpen, 
+    gateType, 
+    returnUrl, 
+    closeGate, 
+    requireProfileCompletion,
+    requireBankDetails 
+  } = useProfileGate();
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -80,6 +91,16 @@ export default function PostJobPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    // Check profile completion first
+    if (!requireProfileCompletion('/client/post-job')) {
+      return;
+    }
+
+    // Check bank details completion
+    if (!requireBankDetails('/client/post-job')) {
+      return;
+    }
 
     // Validation
     if (!formData.title.trim()) {
@@ -177,6 +198,9 @@ export default function PostJobPage() {
   return (
     <div className={`${manrope.className} min-h-screen bg-gradient-to-br from-background via-[#0CF574]/5 to-background px-4 py-12`}>
       <div className="max-w-4xl mx-auto">
+        {/* Welcome Banner */}
+        <WelcomeBanner />
+        
         <div className="text-center mb-8">
           <h1 className="text-4xl md:text-5xl font-extrabold text-gray-900 mb-2">
             Post a Job
@@ -372,6 +396,13 @@ export default function PostJobPage() {
           </form>
         </div>
       </div>
-    </div>
+      {/* Profile Gate Modal */}
+      <ProfileGateModal
+        isOpen={gateOpen}
+        onClose={closeGate}
+        type={gateType}
+        role="client"
+        returnTo={returnUrl}
+      />    </div>
   );
 }

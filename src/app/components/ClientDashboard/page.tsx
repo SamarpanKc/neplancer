@@ -53,28 +53,43 @@ export default function ClientDashboard() {
   async function loadDashboardData(user: User): Promise<void> {
     setLoading(true);
     try {
-      const [activityData, jobsData, contractsData] = await Promise.all([
-        Promise.resolve([]),
-         demoApi.getJobsByClientId(user.id),
-         demoApi.getContractsByUserId(user.id)
-        // jobApi.getJobsByClientId(user.id),
-        
-        
-      ]);
+      const response = await fetch('/api/client/dashboard');
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch dashboard data');
+      }
 
-      const statsData = {
-        totalJobs: jobsData.length,
-        activeContracts: contractsData.filter((c: Contract) => c.status === 'active').length,
-        completedProjects: contractsData.filter((c: Contract) => c.status === 'completed').length,
-        totalSpent: 0,
-        hiredFreelancers: 0
-      };
+      const data = await response.json();
 
-      setStats(statsData);
-      setRecentActivity(Array.isArray(activityData) ? activityData : []);
-      setRecentJobs(Array.isArray(jobsData) ? jobsData : []);
+      setStats({
+        totalJobs: data.stats.totalJobsPosted,
+        activeContracts: data.stats.activeJobs,
+        completedProjects: data.recentContracts.filter((c: any) => c.status === 'completed').length,
+        totalSpent: data.stats.totalSpending,
+        hiredFreelancers: data.recentContracts.length
+      });
+
+      // Format activity for display
+      const formattedActivity = data.recentActivity.map((activity: any) => ({
+        type: activity.type || 'activity',
+        text: activity.description || activity.title || 'Activity',
+        time: new Date(activity.created_at).toLocaleString()
+      }));
+
+      setRecentActivity(formattedActivity);
+      setRecentJobs(data.recentJobs);
     } catch (error) {
       console.error('Error loading dashboard data:', error);
+      // Set empty/default data on error
+      setStats({
+        totalJobs: 0,
+        activeContracts: 0,
+        completedProjects: 0,
+        totalSpent: 0,
+        hiredFreelancers: 0
+      });
+      setRecentActivity([]);
+      setRecentJobs([]);
     } finally {
       setLoading(false);
     }

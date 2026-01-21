@@ -49,23 +49,41 @@ export default function FreelancerDashboard() {
   async function loadDashboardData(user: User): Promise<void> {
     setLoading(true);
     try {
-      const [activityData, contractsData] = await Promise.all([
-        Promise.resolve([]),
-        demoApi.getContractsByUserId(user.id)
-      ]);
+      const response = await fetch('/api/freelancer/dashboard');
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch dashboard data');
+      }
 
-      const statsData = {
-        totalEarnings: 0,
-        activeProjects: contractsData.filter((c: Contract) => c.status === 'active').length,
-        completedProjects: contractsData.filter((c: Contract) => c.status === 'completed').length,
-        pendingProposals: 0
-      };
+      const data = await response.json();
 
-      setStats(statsData);
-      setRecentActivity(Array.isArray(activityData) ? activityData : []);
-      setRecentContracts(Array.isArray(contractsData) ? contractsData : []);
+      setStats({
+        totalEarnings: data.stats.totalEarnings,
+        activeProjects: data.stats.activeProjects,
+        completedProjects: data.stats.completedProjects,
+        pendingProposals: data.stats.pendingApplications
+      });
+
+      // Format activity for display
+      const formattedActivity = data.recentActivity.map((activity: any) => ({
+        type: activity.type || 'activity',
+        text: activity.description || activity.title || 'Activity',
+        time: new Date(activity.created_at).toLocaleString()
+      }));
+
+      setRecentActivity(formattedActivity);
+      setRecentContracts(data.recentContracts);
     } catch (error) {
       console.error('Error loading dashboard data:', error);
+      // Set empty/default data on error
+      setStats({
+        totalEarnings: 0,
+        activeProjects: 0,
+        completedProjects: 0,
+        pendingProposals: 0
+      });
+      setRecentActivity([]);
+      setRecentContracts([]);
     } finally {
       setLoading(false);
     }

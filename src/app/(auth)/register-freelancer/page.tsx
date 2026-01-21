@@ -8,8 +8,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { CheckCircle2, ArrowRight, ArrowLeft, User, Code, DollarSign, Upload, Star } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth';
 import { createVerificationToken } from '@/app/components/token';
-import { verificationEmail } from '@/components/mailer';
-import { sendEmail } from '@/components/mailer';
 
 const manrope = Manrope({
   subsets: ["latin"],
@@ -173,10 +171,6 @@ export default function RegisterFreelancerPage() {
         bio: formData.bio,
         title: formData.title,
       });
-      const verificationLink = `{process.env.NEXT_PUBLIC_BASE_URL}/freelancer/dashboard`;
-
-      const html = verificationEmail(formData.fullName, verificationLink);
-      await sendEmail(formData.email, 'Verify your NepLancer account', html);
       
       router.push('/freelancer/dashboard');
       router.refresh();

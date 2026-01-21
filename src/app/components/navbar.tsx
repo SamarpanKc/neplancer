@@ -64,16 +64,12 @@ const Navbar = () => {
   const handleLogout = async () => {
     try {
       setShowUserMenu(false);
+      // signOut will handle the redirect and cleanup
       await signOut();
-      // Small delay to ensure state is cleared
-      await new Promise(resolve => setTimeout(resolve, 100));
-      router.push('/');
-      // Force a hard refresh to clear all client-side state
-      window.location.href = '/';
     } catch (error) {
       console.error('Logout error:', error);
-      // Even if there's an error, try to navigate away
-      router.push('/');
+      // Force reload on error
+      window.location.href = '/';
     }
   };
 

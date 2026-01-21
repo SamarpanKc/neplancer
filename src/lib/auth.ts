@@ -23,7 +23,7 @@ export async function signUp(data: {
   website?: string;
   location?: string;
 }) {
-  // 1. Create auth user with email confirmation
+  // 1. Create auth user
   const { data: authData, error: authError } = await supabase.auth.signUp({
     email: data.email,
     password: data.password,
@@ -94,13 +94,18 @@ export async function signUp(data: {
 
     // 4. Send welcome email (don't block on this)
     try {
+      console.log('📧 Attempting to send welcome email to:', data.email);
       const welcomeEmail = getWelcomeEmail(data.fullName, data.email);
       await sendEmail(welcomeEmail);
-      console.log('✅ Welcome email sent to:', data.email);
+      console.log('✅ Welcome email sent successfully to:', data.email);
     } catch (emailError) {
       console.error('⚠️ Failed to send welcome email:', emailError);
+      console.error('⚠️ Email error details:', emailError instanceof Error ? emailError.message : emailError);
       // Don't throw - email failure shouldn't block registration
     }
+
+    console.log('🔍 Registration complete. Email confirmation required?', !authData.session);
+    console.log('🔍 User email confirmed at:', authData.user.email_confirmed_at);
 
     return authData;
   } catch (error) {
@@ -130,10 +135,45 @@ export async function signIn(email: string, password: string) {
 // SIGN OUT
 // --------------------
 export async function signOut() {
-  const { error } = await supabase.auth.signOut({
-    scope: 'global' // Sign out from all sessions
-  });
-  if (error) {
+  try {
+    // Sign out from Supabase
+    const { error } = await supabase.auth.signOut({
+      scope: 'global' // Sign out from all sessions
+    });
+    
+    if (error) {
+      console.error('Sign out error:', error);
+    }
+    
+    // Clear all Supabase cookies manually
+    if (typeof document !== 'undefined') {
+      const cookies = document.cookie.split(';');
+      for (const cookie of cookies) {
+        const eqPos = cookie.indexOf('=');
+        const name = eqPos > -1 ? cookie.substring(0, eqPos).trim() : cookie.trim();
+        if (name.includes('sb-') || name.includes('supabase')) {
+          document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=${window.location.hostname}`;
+          document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+        }
+      }
+    }
+    
+    // Clear local storage
+    if (typeof localStorage !== 'undefined') {
+      const keysToRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.includes('supabase') || key.includes('sb-'))) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach(key => localStorage.removeItem(key));
+    }
+    
+    if (error) {
+      throw error;
+    }
+  } catch (error) {
     console.error('Sign out error:', error);
     throw error;
   }

@@ -8,6 +8,7 @@ export interface User {
   fullName?: string;
   role: 'client' | 'freelancer';
   profile_completed?: boolean;
+  bank_details_completed?: boolean;
   is_admin?: boolean;
   admin_level?: string;
   avatar?: string;
