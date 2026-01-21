@@ -214,7 +214,7 @@ export default function FreelancerProfilePage() {
                   className="w-full flex items-center justify-center px-6 py-3 bg-primary text-gray-900 rounded-lg hover:bg-primary/90 transition-colors font-medium"
                 >
                   <MessageSquare className="h-5 w-5 mr-2" />
-                  Contact {freelancer.name.split(' ')[0]}
+                  Contact {(freelancer.name || 'Freelancer').split(' ')[0]}
                 </button>
 
                 <div className="grid grid-cols-2 gap-3">
@@ -353,7 +353,7 @@ export default function FreelancerProfilePage() {
                   <div className="space-y-8">
                     {/* About */}
                     <div>
-                      <h2 className="text-xl font-bold text-gray-900 mb-4">About {freelancer.name.split(' ')[0]}</h2>
+                      <h2 className="text-xl font-bold text-gray-900 mb-4">About {(freelancer.name || 'Freelancer').split(' ')[0]}</h2>
                       <p className="text-gray-700 leading-relaxed whitespace-pre-line">
                         {freelancer.bio}
                       </p>

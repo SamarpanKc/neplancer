@@ -8,6 +8,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { CheckCircle2, ArrowRight, ArrowLeft, User, Code, DollarSign, Upload, Star } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth';
 import { createVerificationToken } from '@/app/components/token';
+import { sendEmail } from '@/components/mailer';
+import { verificationEmail } from '@/utils/emailTemplates';
 
 const manrope = Manrope({
   subsets: ["latin"],
@@ -154,7 +156,7 @@ export default function RegisterFreelancerPage() {
       }));
     }
   };
-
+  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateStep(5)) return;
@@ -175,11 +177,11 @@ export default function RegisterFreelancerPage() {
       router.push('/freelancer/dashboard');
       router.refresh();
     } catch (err) {
+      console.log(err)
       setError(err instanceof Error ? err.message : 'Registration failed');
     }
   };
-
-
+ 
   return (
     <div className={`${manrope.className} min-h-screen bg-gradient-to-br from-background via-[#0CF574]/5 to-background px-4 py-12`}>
       <div className="max-w-4xl mx-auto">
@@ -642,6 +644,7 @@ export default function RegisterFreelancerPage() {
             </div>
           </form>
         </div>
+        <button onClick={send}>send</button>
 
         {/* Footer */}
         <p className="text-center mt-6 text-gray-600">
@@ -654,3 +657,4 @@ export default function RegisterFreelancerPage() {
     </div>
   );
 }
+

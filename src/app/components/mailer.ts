@@ -1,5 +1,6 @@
 'use server';
 
+import { getMaxListeners } from 'events';
 import nodemailer from 'nodemailer';
 
 // 1. Create a transporter
@@ -26,3 +27,4 @@ export async function sendEmail(to: string, subject: string, htmlContent: string
     throw err; // Throw error so it can be caught by caller
   }
 }
+

@@ -122,10 +122,10 @@ export default function ClientProfileSetup() {
         credentials: 'include', // Important: Include cookies with the request
         body: JSON.stringify({
           client_type: formData.clientType,
-          company_name: formData.clientType === 'company' ? formData.companyName : null,
+          company_name: formData.clientType === 'company' ? formData.company_name : null,
           location: formData.location,
           website: formData.website || null,
-          company_description: formData.clientType === 'company' ? formData.companyDescription : null,
+          company_description: formData.clientType === 'company' ? formData.company_description : null,
           industry: formData.industry || null,
           job_title: formData.clientType === 'individual' ? formData.jobTitle : null,
           // TODO: Add logo upload functionality

@@ -8,7 +8,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { validateEmail, signUpSchema } from '@/lib/validations';
 import { AlertCircle, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
-
+import { sendEmail } from '@/components/mailer';
+import { verificationEmail } from '@/utils/emailTemplates';
 const manrope = Manrope({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
@@ -96,97 +97,113 @@ export default function RegisterPage() {
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setEmailTouched(true);
+  e.preventDefault();
+  setError('');
+  setEmailTouched(true);
 
-    // Validate email first
-    if (!formData.email) {
-      setError('Email address is required');
-      setEmailError('Email address is required');
-      toast.error('Email address is required');
-      return;
-    }
+  // Validate email first
+  if (!formData.email) {
+    setError('Email address is required');
+    setEmailError('Email address is required');
+    toast.error('Email address is required');
+    return;
+  }
 
-    if (!isEmailValid) {
-      setError('Please enter a valid email address');
-      toast.error('Please enter a valid email address');
-      return;
-    }
+  if (!isEmailValid) {
+    setError('Please enter a valid email address');
+    toast.error('Please enter a valid email address');
+    return;
+  }
 
-    // Validate full name
-    if (!formData.fullName.trim() || formData.fullName.trim().length < 2) {
-      setError('Please enter your full name (at least 2 characters)');
-      toast.error('Please enter your full name');
-      return;
-    }
+  // Validate full name
+  if (!formData.fullName.trim() || formData.fullName.trim().length < 2) {
+    setError('Please enter your full name (at least 2 characters)');
+    toast.error('Please enter your full name');
+    return;
+  }
 
-    // Validation for passwords
-    if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
-      toast.error('Passwords do not match');
-      return;
-    }
+  // Validation for passwords
+  if (formData.password !== formData.confirmPassword) {
+    setError('Passwords do not match');
+    toast.error('Passwords do not match');
+    return;
+  }
 
-    if (formData.password.length < 8) {
-      setError('Password must be at least 8 characters');
-      toast.error('Password must be at least 8 characters');
-      return;
-    }
+  if (formData.password.length < 8) {
+    setError('Password must be at least 8 characters');
+    toast.error('Password must be at least 8 characters');
+    return;
+  }
 
-    // Freelancer-specific validation
-    if (formData.role === 'freelancer' && !formData.username.trim()) {
-      setError('Username is required for freelancers');
-      toast.error('Username is required for freelancers');
-      return;
-    }
+  // Freelancer-specific validation
+  if (formData.role === 'freelancer' && !formData.username.trim()) {
+    setError('Username is required for freelancers');
+    toast.error('Username is required for freelancers');
+    return;
+  }
 
-    if (formData.role === 'freelancer' && formData.username.length < 3) {
-      setError('Username must be at least 3 characters');
-      toast.error('Username must be at least 3 characters');
-      return;
-    }
+  if (formData.role === 'freelancer' && formData.username.length < 3) {
+    setError('Username must be at least 3 characters');
+    toast.error('Username must be at least 3 characters');
+    return;
+  }
+  
+  try {
+    // Step 1: Sign up the user
+    await signUp({
+      email: formData.email.toLowerCase().trim(),
+      password: formData.password,
+      fullName: formData.fullName.trim(),
+      role: formData.role,
+      username: formData.role === 'freelancer' ? formData.username : undefined,
+      clientType: formData.role === 'client' ? formData.clientType : undefined,
+    });
+
+    // Step 2: Since signUp doesn't return userId, we need to get it from your database
+    // Import at the top of file
+    const { createClient } = await import('@/lib/supabse/client');
+    const supabase = createClient();
     
-    try {
-      const response = await signUp({
-        email: formData.email.toLowerCase().trim(),
-        password: formData.password,
-        fullName: formData.fullName.trim(),
-        role: formData.role,
-        username: formData.role === 'freelancer' ? formData.username : undefined,
-        clientType: formData.role === 'client' ? formData.clientType : undefined,
-      });
+    // Get the user that was just created
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('email', formData.email.toLowerCase().trim())
+      .single();
 
-      // Check if email confirmation is required
-      if (response && 'emailConfirmationRequired' in response && response.emailConfirmationRequired) {
-        toast.success('Registration successful! Please check your email to verify your account.', {
-          duration: 6000,
-        });
-        // Redirect to a confirmation page or stay on the same page
-        router.push('/auth/verify-email');
-      } else {
-        // Redirect based on role after successful signup
-        const redirectUrl = formData.role === 'freelancer' 
-          ? '/freelancer/browse-jobs' 
-          : '/client/post-job';
-        
-        // Set first-time user flag
-        if (typeof localStorage !== 'undefined') {
-          localStorage.setItem('firstTimeUser', 'true');
-        }
-        
-        toast.success(`Welcome to NepLancer! Let's get started.`, {
-          duration: 4000,
-        });
-        
-        router.push(redirectUrl);
-      }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Registration failed. Please try again.';
-      setError(errorMessage);
-      toast.error(errorMessage);
+    if (userError || !userData) {
+      throw new Error('User created but could not retrieve user data');
     }
-  };
+
+    // Step 3: Import and create verification token
+    const { createVerificationToken } = await import('@/app/components/token');
+    const token = await createVerificationToken(userData.id);
+
+    // Step 4: Send verification email
+    const htmlContent = verificationEmail(formData.fullName, token);
+    
+    await sendEmail(
+      formData.email.toLowerCase().trim(),
+      'Verify your NepLancer account',
+      htmlContent
+    );
+
+    // Step 5: Show success and redirect
+    toast.success('Registration successful! Please check your email to verify your account.', {
+      duration: 6000,
+    });
+    
+    router.push('/auth/verify-email');
+
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : 'Registration failed. Please try again.';
+    setError(errorMessage);
+    toast.error(errorMessage);
+  }
+};
+
+  
+  
 
   return (
     <div className={`${manrope.className} min-h-screen flex items-center justify-center bg-gradient-to-b from-background to-[#0CF574]/10 px-4 py-12`}>
@@ -480,8 +497,9 @@ export default function RegisterPage() {
             <a href="#" className="underline hover:text-gray-900">Privacy Policy</a>
           </div>
         </form>
+                
+
       </div>
       </div>
     </div>
-  );
-}
+  );}
