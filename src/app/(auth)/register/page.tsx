@@ -8,7 +8,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { validateEmail, signUpSchema } from '@/lib/validations';
 import { AlertCircle, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { sendEmail } from '@/components/mailer';
+import { sendEmail } from '@/app/components/mailer';
 import { verificationEmail } from '@/utils/emailTemplates';
 const manrope = Manrope({
   subsets: ["latin"],
@@ -166,13 +166,14 @@ export default function RegisterPage() {
     
     // Get the user that was just created
     const { data: userData, error: userError } = await supabase
-      .from('users')
+      .from('profiles')
       .select('id')
       .eq('email', formData.email.toLowerCase().trim())
       .single();
 
     if (userError || !userData) {
-      throw new Error('User created but could not retrieve user data');
+      console.log(userData)
+      throw new Error('User created but could not retrieve user data,specifically this not working');
     }
 
     // Step 3: Import and create verification token

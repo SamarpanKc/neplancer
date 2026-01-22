@@ -1,9 +1,9 @@
 // lib/verification.ts
 import crypto from 'crypto';
-import { createClient } from '@/lib/supabse/client'; // your server-side supabase client
+import { supabaseAdmin } from '@/lib/supabse/serverClient'; // your server-side supabase client
 
 export async function createVerificationToken(userId: number) {
-  const supabase = createClient();
+  const supabase = supabaseAdmin;
 
   // 1. Generate a random token
   const token = crypto.randomBytes(32).toString('hex'); // 64 chars
@@ -26,6 +26,7 @@ export async function createVerificationToken(userId: number) {
   if (error) {
     console.error('Error storing verification token:', error);
     throw new Error('Could not create verification token');
+    //no tables for this so error okay,
   }
 
   return token; // This is the plain token for the email link

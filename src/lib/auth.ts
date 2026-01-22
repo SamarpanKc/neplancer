@@ -204,17 +204,21 @@ export async function getCurrentUser(): Promise<User | null> {
     return null;
   }
 
+  // Provide defaults for optional admin fields
+  const is_admin = (profile as any).is_admin || false;
+  const admin_level = (profile as any).admin_level;
+
   // Build stats from joined data
   let stats = {};
-  if (profile.role === 'freelancer' && profile.freelancers?.[0]) {
-    const freelancerData = profile.freelancers[0];
+  if (profile.role === 'freelancer' && profile.freelancers) {
+    const freelancerData = Array.isArray(profile.freelancers) ? profile.freelancers[0] : profile.freelancers;
     stats = {
       completedJobs: freelancerData.completed_jobs || 0,
       totalEarnings: freelancerData.total_earned || 0,
       rating: freelancerData.rating || 5.0,
     };
-  } else if (profile.role === 'client' && profile.clients?.[0]) {
-    const clientData = profile.clients[0];
+  } else if (profile.role === 'client' && profile.clients) {
+    const clientData = profile.clients;
     stats = {
       jobsPosted: clientData.jobs_posted || 0,
       totalSpent: clientData.total_spent || 0,
@@ -229,8 +233,8 @@ export async function getCurrentUser(): Promise<User | null> {
     name: profile.full_name,
     avatarUrl: profile.avatar_url,
     profile_completed: profile.profile_completed,
-    is_admin: profile.is_admin || false,
-    admin_level: profile.admin_level,
+    is_admin,
+    admin_level,
     stats,
   } as User;
 }
